@@ -1,4 +1,6 @@
- import 'package:flutter/material.dart';
+
+
+import 'package:flutter/material.dart';
 
 import '../../models/transaction_model.dart';
 import '../../services/wallet_service.dart';
@@ -12,7 +14,8 @@ required this.walletService,
 });
 
 @override
-State<TransactionsPage> createState() => _TransactionsPageState();
+State<TransactionsPage> createState() =>
+_TransactionsPageState();
 }
 
 class _TransactionsPageState extends State<TransactionsPage> {
@@ -21,7 +24,8 @@ WalletService get wallet => widget.walletService;
 String _searchQuery = '';
 String _selectedFilter = 'All';
 
-String money(double amount) => '${amount.toStringAsFixed(0)} MMK';
+String money(double amount) =>
+'${amount.toStringAsFixed(0)} MMK';
 
 static const List<String> _filterOptions = [
 'All',
@@ -71,8 +75,9 @@ TransactionModel? transaction,
 }) async {
 final formKey = GlobalKey<FormState>();
 
-final titleController =
-TextEditingController(text: transaction?.title ?? '');
+final titleController = TextEditingController(
+text: transaction?.title ?? '',
+);
 
 final amountController = TextEditingController(
 text: transaction == null
@@ -80,8 +85,9 @@ text: transaction == null
     : transaction.amount.toStringAsFixed(0),
 );
 
-final noteController =
-TextEditingController(text: transaction?.note ?? '');
+final noteController = TextEditingController(
+text: transaction?.note ?? '',
+);
 
 TransactionType type =
 transaction?.type ?? TransactionType.expense;
@@ -112,7 +118,8 @@ context: context,
 builder: (dialogContext) {
 return StatefulBuilder(
 builder: (dialogContext, setDialogState) {
-final categories = type == TransactionType.income
+final categories =
+type == TransactionType.income
 ? incomeCategories
     : expenseCategories;
 
@@ -137,8 +144,8 @@ segments: const [
 ButtonSegment(
 value: TransactionType.expense,
 label: Text('Expense'),
-icon: Icon(Icons.arrow_upward),
- ),
+ icon: Icon(Icons.arrow_upward),
+),
 ButtonSegment(
 value: TransactionType.income,
 label: Text('Income'),
@@ -157,20 +164,27 @@ type == TransactionType.income
 },
 ),
 const SizedBox(height: 12),
-TextFormField(
-controller: titleController,
-decoration: const InputDecoration(
-labelText: 'Description',
-hintText: 'e.g. Lunch',
-),
-validator: (value) {
-if (value == null || value.trim().isEmpty) {
-return 'Enter a description';
-}
-return null;
-},
-),
+
+  TextFormField(
+    controller: titleController,
+    enabled: true,
+    keyboardType: TextInputType.text,
+    textCapitalization: TextCapitalization.sentences,
+    decoration: const InputDecoration(
+      labelText: 'Transaction Title',
+      hintText: 'Enter title, e.g. Lunch or Salary',
+      prefixIcon: Icon(Icons.edit_note),
+      border: OutlineInputBorder(),
+    ),
+    validator: (value) {
+      if (value == null || value.trim().isEmpty) {
+        return 'Please enter a transaction title';
+      }
+      return null;
+    },
+  ),
 const SizedBox(height: 12),
+
 TextFormField(
 controller: amountController,
 keyboardType:
@@ -179,6 +193,7 @@ decimal: true,
 ),
 decoration: const InputDecoration(
 labelText: 'Amount (MMK)',
+border: OutlineInputBorder(),
 ),
 validator: (value) {
 final amount = double.tryParse(
@@ -195,11 +210,13 @@ return null;
 },
 ),
 const SizedBox(height: 12),
+
 DropdownButtonFormField<String>(
 initialValue: category,
 isExpanded: true,
 decoration: const InputDecoration(
 labelText: 'Category',
+border: OutlineInputBorder(),
 ),
 items: categories.map((item) {
 return DropdownMenuItem<String>(
@@ -216,14 +233,17 @@ category = value;
 },
 ),
 const SizedBox(height: 12),
-TextFormField(
+ TextFormField(
 controller: noteController,
+maxLines: 2,
 decoration: const InputDecoration(
 labelText: 'Note (optional)',
+border: OutlineInputBorder(),
 ),
 ),
-const SizedBox(height: 8),
- OutlinedButton.icon(
+const SizedBox(height: 12),
+
+OutlinedButton.icon(
 onPressed: () async {
 final picked = await showDatePicker(
 context: dialogContext,
@@ -239,7 +259,9 @@ date = picked;
 });
 }
 },
-icon: const Icon(Icons.calendar_month),
+icon: const Icon(
+Icons.calendar_month,
+),
 label: Text(
 '${date.day}/${date.month}/${date.year}',
 ),
@@ -282,9 +304,13 @@ note: noteController.text.trim().isEmpty
 
 try {
 if (transaction == null) {
-await wallet.addTransaction(newTransaction);
+await wallet.addTransaction(
+newTransaction,
+);
 } else {
-await wallet.updateTransaction(newTransaction);
+await wallet.updateTransaction(
+newTransaction,
+);
 }
 
 if (!dialogContext.mounted) return;
@@ -293,9 +319,13 @@ Navigator.pop(dialogContext);
 } catch (error) {
 if (!dialogContext.mounted) return;
 
-ScaffoldMessenger.of(dialogContext).showSnackBar(
+ScaffoldMessenger.of(
+dialogContext,
+).showSnackBar(
 SnackBar(
-content: Text('Could not save transaction: $error'),
+content: Text(
+'Could not save transaction: $error',
+),
 ),
 );
 }
@@ -314,24 +344,31 @@ amountController.dispose();
 noteController.dispose();
 }
 }
-
-Future<void> deleteTransaction(TransactionModel item) async {
+ Future<void> deleteTransaction(
+TransactionModel item,
+) async {
 final confirmed = await showDialog<bool>(
 context: context,
-builder: (dialogContext) => AlertDialog(
+builder: (dialogContext) {
+return AlertDialog(
 title: const Text('Delete Transaction?'),
 content: Text('Delete "${item.title}"?'),
 actions: [
 TextButton(
-onPressed: () => Navigator.pop(dialogContext, false),
+onPressed: () {
+Navigator.pop(dialogContext, false);
+},
 child: const Text('Cancel'),
 ),
 FilledButton(
-onPressed: () => Navigator.pop(dialogContext, true),
+onPressed: () {
+Navigator.pop(dialogContext, true);
+},
 child: const Text('Delete'),
 ),
 ],
-),
+);
+},
 );
 
 if (confirmed == true && mounted) {
@@ -339,8 +376,13 @@ try {
 await wallet.deleteTransaction(item.id);
 } catch (error) {
 if (!mounted) return;
+
 ScaffoldMessenger.of(context).showSnackBar(
-SnackBar(content: Text('Could not delete transaction: $error')),
+SnackBar(
+content: Text(
+'Could not delete transaction: $error',
+),
+),
 );
 }
 }
@@ -353,18 +395,23 @@ animation: wallet,
 builder: (context, child) {
 if (wallet.isLoading) {
 return const Scaffold(
-body: Center(child: CircularProgressIndicator()),
+body: Center(
+child: CircularProgressIndicator(),
+),
 );
 }
 
 final transactions = wallet.transactions;
-final filteredTransactions = _filterTransactions(transactions);
+final filteredTransactions =
+_filterTransactions(transactions);
 
 return Scaffold(
 appBar: AppBar(
 title: const Text(
 'Transactions',
-style: TextStyle(fontWeight: FontWeight.bold),
+style: TextStyle(
+fontWeight: FontWeight.bold,
+),
 ),
 ),
 body: Column(
@@ -402,8 +449,11 @@ const Color(0xFFE85D75),
 ),
 ),
 const Divider(height: 1),
+
 Padding(
-padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+padding: const EdgeInsets.fromLTRB(
+16, 12, 16, 8,
+),
 child: TextField(
 onChanged: (value) {
 setState(() {
@@ -430,7 +480,9 @@ borderRadius: BorderRadius.circular(14),
 ),
 ),
 Padding(
-padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+padding: const EdgeInsets.fromLTRB(
+16, 0, 16, 8,
+),
 child: DropdownButtonFormField<String>(
 initialValue: _selectedFilter,
 isExpanded: true,
@@ -446,7 +498,7 @@ return DropdownMenuItem<String>(
 value: option,
 child: Text(option),
 );
- }).toList(),
+}).toList(),
 onChanged: (value) {
 if (value != null) {
 setState(() {
@@ -456,6 +508,7 @@ _selectedFilter = value;
 },
 ),
 ),
+
 Expanded(
 child: filteredTransactions.isEmpty
 ? Center(
@@ -470,7 +523,9 @@ textAlign: TextAlign.center,
 padding: const EdgeInsets.all(12),
 itemCount: filteredTransactions.length,
 itemBuilder: (context, index) {
-final item = filteredTransactions[index];
+final item =
+filteredTransactions[index];
+
 final isIncome =
 item.type == TransactionType.income;
 
@@ -500,8 +555,7 @@ subtitle: Text(
 trailing: Row(
 mainAxisSize: MainAxisSize.min,
 children: [
-Flexible(
-child: Text(
+Text(
 '${isIncome ? '+' : '-'}'
 '${money(item.amount)}',
 style: TextStyle(
@@ -509,27 +563,25 @@ color: color,
 fontWeight: FontWeight.bold,
 ),
 ),
-),
 PopupMenuButton<String>(
 onSelected: (value) {
 if (value == 'edit') {
 showTransactionForm(
-transaction: item,
+ transaction: item,
 );
 } else if (value == 'delete') {
 deleteTransaction(item);
 }
-},
+ },
 itemBuilder: (context) => const [
 PopupMenuItem<String>(
-  value: 'edit',
-  child: Text('Edit'),
+value: 'edit',
+child: Text('Edit'),
 ),
-  PopupMenuItem<String>(
-    value: 'delete',
-    child: Text('Delete'),
-  ),
-
+PopupMenuItem<String>(
+value: 'delete',
+child: Text('Delete'),
+),
 ],
 ),
 ],
@@ -545,13 +597,17 @@ floatingActionButton: FloatingActionButton.extended(
 onPressed: () => showTransactionForm(),
 icon: const Icon(Icons.add),
 label: const Text('Add Transaction'),
- ),
+),
 );
 },
 );
 }
 
-Widget summaryCard(String title, double amount, Color color) {
+Widget summaryCard(
+String title,
+double amount,
+Color color,
+) {
 return Container(
 width: double.infinity,
 padding: const EdgeInsets.all(16),
@@ -562,7 +618,10 @@ borderRadius: BorderRadius.circular(18),
 child: Column(
 crossAxisAlignment: CrossAxisAlignment.start,
 children: [
-Text(title, style: TextStyle(color: color)),
+Text(
+title,
+style: TextStyle(color: color),
+),
 const SizedBox(height: 8),
 FittedBox(
 fit: BoxFit.scaleDown,

@@ -51,6 +51,7 @@ try {
   debugPrint(
     'CURRENT UID: ${FirebaseAuth.instance.currentUser?.uid}',
   );
+  debugPrint('AUTH STATE: ${FirebaseAuth.instance.currentUser}');
   debugPrint(
     'REGISTER UID: ${credential.user?.uid}',
   );
@@ -61,12 +62,7 @@ try {
 
   if (!mounted) return;
 
-  Navigator.of(context).pushAndRemoveUntil(
-    MaterialPageRoute(
-      builder: (_) => const LoginPage(),
-    ),
-        (route) => false,
-  );
+  // Firebase AuthGate က Home ကို အလိုအလျောက် ပြောင်းပေးပါမယ်။
 
 
 } on Exception catch (e) {

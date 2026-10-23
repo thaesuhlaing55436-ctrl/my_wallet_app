@@ -1,9 +1,9 @@
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/transaction_model.dart';
 import '../../services/wallet_service.dart';
+import '../../widgets/chart_widgets.dart';
 
 class AnalyticsPage extends StatelessWidget {
 final WalletService walletService;
@@ -39,29 +39,23 @@ item.date.month == now.month;
 }).toList();
 
 final monthlyIncome = monthlyTransactions
-.where((item) =>
-item.type == TransactionType.income)
-.fold<double>(
-0, (sum, item) => sum + item.amount);
+    .where((item) => item.type == TransactionType.income)
+    .fold<double>(0, (sum, item) => sum + item.amount);
 
 final monthlyExpense = monthlyTransactions
-.where((item) =>
-item.type == TransactionType.expense)
-.fold<double>(
-0, (sum, item) => sum + item.amount);
+    .where((item) => item.type == TransactionType.expense)
+    .fold<double>(0, (sum, item) => sum + item.amount);
 
 final Map<String, double> categoryExpenses = {};
 
 for (final item in monthlyTransactions) {
 if (item.type == TransactionType.expense) {
 categoryExpenses[item.category] =
-(categoryExpenses[item.category] ?? 0) +
-item.amount;
+(categoryExpenses[item.category] ?? 0) + item.amount;
 }
 }
 
-final sortedCategories = categoryExpenses.entries
-.toList()
+final sortedCategories = categoryExpenses.entries.toList()
 ..sort((a, b) => b.value.compareTo(a.value));
 
 return Scaffold(
@@ -77,11 +71,14 @@ children: [
 Text(
 'Overview • ${_monthName(now.month)} ${now.year}',
 style: Theme.of(context)
-.textTheme
-.titleLarge
-?.copyWith(fontWeight: FontWeight.bold),
+    .textTheme
+    .titleLarge
+    ?.copyWith(fontWeight: FontWeight.bold),
 ),
 const SizedBox(height: 16),
+
+ChartWidget(transactions: transactions),
+const SizedBox(height: 24),
 
 Row(
 children: [
@@ -104,7 +101,6 @@ const Color(0xFFE85D75),
 ),
 
 const SizedBox(height: 24),
-
 _sectionTitle(context, 'Income vs Expense'),
 const SizedBox(height: 12),
 
@@ -117,27 +113,18 @@ SizedBox(
 height: 220,
 child: BarChart(
 BarChartData(
-alignment:
-BarChartAlignment.spaceEvenly,
+alignment: BarChartAlignment.spaceEvenly,
 gridData: const FlGridData(
 show: true,
 drawVerticalLine: false,
-),
-borderData: FlBorderData(
-show: false,
-),
+ ),
+borderData: FlBorderData(show: false),
 titlesData: FlTitlesData(
-topTitles:
-const AxisTitles(
-sideTitles: SideTitles(
-showTitles: false,
+topTitles: const AxisTitles(
+sideTitles: SideTitles(showTitles: false),
 ),
-),
-rightTitles:
-const AxisTitles(
-sideTitles: SideTitles(
-showTitles: false,
-),
+rightTitles: const AxisTitles(
+sideTitles: SideTitles(showTitles: false),
 ),
 leftTitles: const AxisTitles(
 sideTitles: SideTitles(
@@ -148,8 +135,7 @@ reservedSize: 42,
 bottomTitles: AxisTitles(
 sideTitles: SideTitles(
 showTitles: true,
-getTitlesWidget:
-(value, meta) {
+getTitlesWidget: (value, meta) {
 String label;
 
 switch (value.toInt()) {
@@ -160,17 +146,14 @@ case 1:
 label = 'Expense';
 break;
 default:
-return const SizedBox();
+return const SizedBox.shrink();
 }
 
 return SideTitleWidget(
 meta: meta,
 child: Text(
 label,
-style:
-const TextStyle(
-fontSize: 11,
-),
+style: const TextStyle(fontSize: 11),
 ),
 );
 },
@@ -203,11 +186,7 @@ style: TextStyle(color: Colors.grey),
 ),
 
 const SizedBox(height: 24),
-
-_sectionTitle(
-context,
-'Expense by Category',
-),
+_sectionTitle(context, 'Expense by Category'),
 const SizedBox(height: 12),
 
 if (sortedCategories.isEmpty)
@@ -230,11 +209,9 @@ child: Column(
 children: sortedCategories.map((entry) {
 final percentage = monthlyExpense > 0
 ? entry.value / monthlyExpense
-: 0.0;
-
-return Padding(
-padding:
-const EdgeInsets.only(bottom: 18),
+    : 0.0;
+ return Padding(
+padding: const EdgeInsets.only(bottom: 18),
 child: Column(
 children: [
 Row(
@@ -243,8 +220,7 @@ Expanded(
 child: Text(
 entry.key,
 style: const TextStyle(
-fontWeight:
-FontWeight.w600,
+fontWeight: FontWeight.w600,
 ),
 ),
 ),
@@ -261,15 +237,12 @@ fontSize: 12,
 ),
 const SizedBox(height: 8),
 ClipRRect(
-borderRadius:
-BorderRadius.circular(8),
+borderRadius: BorderRadius.circular(8),
 child: LinearProgressIndicator(
 value: percentage,
 minHeight: 9,
 backgroundColor:
-Colors.grey.withValues(
-alpha: 0.15,
-),
+Colors.grey.withValues(alpha: 0.15),
 color: const Color(0xFF4B9FE1),
 ),
 ),
@@ -282,7 +255,6 @@ color: const Color(0xFF4B9FE1),
 ),
 
 const SizedBox(height: 24),
-
 _sectionTitle(context, 'Overall Balance'),
 const SizedBox(height: 12),
 
@@ -298,11 +270,7 @@ const Color(0xFF4B9FE1),
 );
 }
 
-BarChartGroupData _barGroup(
-int x,
-double amount,
-Color color,
-) {
+BarChartGroupData _barGroup(int x, double amount, Color color) {
 return BarChartGroupData(
 x: x,
 barRods: [
@@ -318,71 +286,61 @@ top: Radius.circular(6),
 );
 }
 
-Widget _sectionTitle(
-BuildContext context,
-String title,
-) {
+Widget _sectionTitle(BuildContext context, String title) {
 return Text(
 title,
 style: Theme.of(context)
-.textTheme
-.titleMedium
-?.copyWith(fontWeight: FontWeight.bold),
+    .textTheme
+    .titleMedium
+    ?.copyWith(fontWeight: FontWeight.bold),
 );
 }
 
-Widget _summaryCard(
-String title,
-double amount,
-    Color color,
-    ) {
-  return Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.10),
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(color: color),
-        ),
-        const SizedBox(height: 10),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            money(amount),
-            style: TextStyle(
-              color: color,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
+Widget _summaryCard(String title, double amount, Color color) {
+return Container(
+padding: const EdgeInsets.all(18),
+decoration: BoxDecoration(
+color: color.withValues(alpha: 0.10),
+borderRadius: BorderRadius.circular(18),
+),
+child: Column(
+crossAxisAlignment: CrossAxisAlignment.start,
+children: [
+Text(title, style: TextStyle(color: color)),
+const SizedBox(height: 10),
+FittedBox(
+fit: BoxFit.scaleDown,
+alignment: Alignment.centerLeft,
+child: Text(
+money(amount),
+style: TextStyle(
+color: color,
+fontSize: 20,
+fontWeight: FontWeight.bold,
+),
+),
+),
+],
+),
+);
 }
 
 String _monthName(int month) {
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
+const months = [
+'January',
+'February',
+'March',
+'April',
+'May',
+'June',
+'July',
+'August',
+'September',
+'October',
+'November',
+'December',
+];
 
-  return months[month - 1];
+return months[month - 1];
 }
 }
