@@ -1,0 +1,25 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "my-wallet-app-39f3b",
+          "appId": "1:45114451890:android:4b12d5648ad6935f95e6ab",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "my-wallet-app-39f3b",
+          "configurations": {
+            "android": "1:45114451890:android:4b12d5648ad6935f95e6ab",
+            "ios": "1:45114451890:ios:02ceab838ee7c2ef95e6ab",
+            "macos": "1:45114451890:ios:02ceab838ee7c2ef95e6ab",
+            "web": "1:45114451890:web:7c0c83c49eb5f0a195e6ab",
+            "windows": "1:45114451890:web:af14ef2e5f3955a895e6ab"
+          }
+        }
+      }
+    }
+  }
+}
