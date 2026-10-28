@@ -1,5 +1,4 @@
-
-import 'package:flutter/material.dart';
+ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -7,23 +6,21 @@ import '../../models/transaction_model.dart';
 import '../../services/wallet_service.dart';
 
 class AddTransactionPage extends StatefulWidget {
- final WalletService? walletService;
+final WalletService? walletService;
 
- const AddTransactionPage({
-  super.key,
-  this.walletService,
- });
+const AddTransactionPage({
+super.key,
+this.walletService,
+});
 
- @override
- State<AddTransactionPage> createState() =>
-     _AddTransactionPageState();
+@override
+State<AddTransactionPage> createState() =>
+_AddTransactionPageState();
 }
 
 class _AddTransactionPageState extends State<AddTransactionPage> {
 final _formKey = GlobalKey<FormState>();
-final _titleController = TextEditingController();
 final _amountController = TextEditingController();
-final _noteController = TextEditingController();
 
 final List<String> _categories = [
 'Food',
@@ -68,18 +65,16 @@ setState(() => _saving = true);
 try {
 final transaction = TransactionModel(
 id: const Uuid().v4(),
-title: _titleController.text.trim(),
+title: _category,
 amount: double.parse(_amountController.text.trim()),
 category: _category,
 date: _date,
 type: _type,
-note: _noteController.text.trim().isEmpty
-? null
-    : _noteController.text.trim(),
+note: null,
 );
 
 final service =
-    widget.walletService ?? context.read<WalletService>();
+widget.walletService ?? context.read<WalletService>();
 
 await service.addTransaction(transaction);
 
@@ -107,9 +102,7 @@ setState(() => _saving = false);
 
 @override
 void dispose() {
-_titleController.dispose();
 _amountController.dispose();
-_noteController.dispose();
 super.dispose();
 }
 
@@ -158,52 +151,12 @@ _category = _type == TransactionType.income
 });
 },
 ),
+
 const SizedBox(height: 24),
-
-TextFormField(
-controller: _titleController,
-textCapitalization: TextCapitalization.sentences,
-decoration: const InputDecoration(
-labelText: 'Title',
-hintText: 'e.g. Lunch or Monthly salary',
-prefixIcon: Icon(Icons.title),
-border: OutlineInputBorder(),
-),
-validator: (value) {
-if (value == null || value.trim().isEmpty) {
-return 'Please enter a title';
-}
-return null;
-},
-),
-const SizedBox(height: 16),
-
-TextFormField(
-controller: _amountController,
-keyboardType:
-const TextInputType.numberWithOptions(decimal: true),
-decoration: const InputDecoration(
-labelText: 'Amount (MMK)',
-hintText: 'Enter amount',
-prefixIcon: Icon(Icons.payments_outlined),
-border: OutlineInputBorder(),
-),
-validator: (value) {
-final amount = double.tryParse(value?.trim() ?? '');
-
-if (amount == null ||
-!amount.isFinite ||
-amount <= 0) {
-return 'Enter a valid amount greater than 0';
-}
-
-return null;
-},
-),
-const SizedBox(height: 16),
-
+// Category first
 DropdownButtonFormField<String>(
 initialValue: _category,
+isExpanded: true,
 decoration: const InputDecoration(
 labelText: 'Category',
 prefixIcon: Icon(Icons.category_outlined),
@@ -221,6 +174,37 @@ setState(() => _category = value);
 }
 },
 ),
+
+const SizedBox(height: 16),
+
+// Amount below category
+TextFormField(
+controller: _amountController,
+keyboardType:
+const TextInputType.numberWithOptions(
+decimal: true,
+),
+decoration: const InputDecoration(
+labelText: 'Amount (MMK)',
+hintText: 'Enter amount',
+prefixIcon: Icon(Icons.payments_outlined),
+border: OutlineInputBorder(),
+),
+validator: (value) {
+final amount = double.tryParse(
+value?.trim() ?? '',
+);
+
+if (amount == null ||
+!amount.isFinite ||
+amount <= 0) {
+return 'Enter a valid amount greater than 0';
+}
+
+return null;
+},
+),
+
 const SizedBox(height: 16),
 
 InkWell(
@@ -238,21 +222,10 @@ child: Text(
 ),
 ),
 ),
-const SizedBox(height: 16),
 
-TextFormField(
-controller: _noteController,
-maxLines: 3,
-textCapitalization: TextCapitalization.sentences,
-decoration: const InputDecoration(
-labelText: 'Note (Optional)',
-hintText: 'Add a note...',
-prefixIcon: Icon(Icons.notes),
-border: OutlineInputBorder(),
-),
-),
 const SizedBox(height: 28),
- SizedBox(
+
+SizedBox(
 height: 52,
 child: FilledButton.icon(
 onPressed: _saving ? null : _saveTransaction,
@@ -270,6 +243,7 @@ _saving ? 'Saving...' : 'Save Transaction',
 ),
 ),
 ),
+
 const SizedBox(height: 12),
 
 Text(

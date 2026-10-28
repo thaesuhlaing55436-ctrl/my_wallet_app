@@ -21,50 +21,19 @@ class _TransactionsPageState extends State<TransactionsPage> {
 WalletService get wallet => widget.walletService;
 
 String _searchQuery = '';
-late String _selectedFilter = widget.initialFilter;
 
 String money(double amount) => '${amount.toStringAsFixed(0)} MMK';
-
-static const List<String> _filterOptions = [
-'All',
-'Income',
-'Expense',
-'Food',
-'Transport',
-'Shopping',
-'Bills',
-'Health',
-'Education',
-'Salary',
-'Business',
-'Gift',
-'Other',
-];
 
 List<TransactionModel> _filterTransactions(
 List<TransactionModel> transactions,
 ) {
-return transactions.where((item) {
 final query = _searchQuery.trim().toLowerCase();
 
-final matchesSearch =
-item.title.toLowerCase().contains(query) ||
-item.category.toLowerCase().contains(query) ||
-(item.note ?? '').toLowerCase().contains(query);
+if (query.isEmpty) return transactions;
 
-bool matchesFilter;
-
-if (_selectedFilter == 'All') {
-matchesFilter = true;
-} else if (_selectedFilter == 'Income') {
-matchesFilter = item.type == TransactionType.income;
-} else if (_selectedFilter == 'Expense') {
-matchesFilter = item.type == TransactionType.expense;
-} else {
-matchesFilter = item.category == _selectedFilter;
-}
-
-return matchesSearch && matchesFilter;
+return transactions.where((item) {
+return item.title.toLowerCase().contains(query) ||
+item.category.toLowerCase().contains(query);
 }).toList();
 }
 
@@ -73,21 +42,20 @@ TransactionModel? transaction,
 }) async {
 final formKey = GlobalKey<FormState>();
 
-final titleController = TextEditingController(
-text: transaction?.title ?? '',
-);
 final amountController = TextEditingController(
 text: transaction == null ? '' : transaction.amount.toString(),
 );
+
 final categoryController = TextEditingController(
-text: transaction?.category ?? 'Food',
-);
-final noteController = TextEditingController(
-text: transaction?.note ?? '',
+text: transaction?.category ??
+(transaction?.type == TransactionType.income
+? 'Salary'
+    : 'Food'),
 );
 
 TransactionType type =
 transaction?.type ?? TransactionType.expense;
+
 DateTime date = transaction?.date ?? DateTime.now();
 
 const incomeCategories = [
@@ -104,6 +72,7 @@ const expenseCategories = [
 'Bills',
 'Health',
 'Education',
+'Gift',
 'Other',
 ];
 
@@ -131,21 +100,21 @@ setDialogState(() {
 saving = true;
 });
 
+final category = categoryController.text.trim();
+
 final newTransaction = TransactionModel(
 id: transaction?.id ??
 DateTime.now()
     .microsecondsSinceEpoch
     .toString(),
-title: titleController.text.trim(),
+title: category,
 amount: double.parse(
 amountController.text.trim(),
 ),
-category: categoryController.text.trim(),
+category: category,
 date: date,
 type: type,
-note: noteController.text.trim().isEmpty
-? null
-    : noteController.text.trim(),
+note: transaction?.note,
 );
 
 try {
@@ -167,7 +136,6 @@ setDialogState(() {
 saving = false;
 });
 }
-
 if (mounted) {
 ScaffoldMessenger.of(context)
 ..hideCurrentSnackBar()
@@ -213,6 +181,7 @@ onSelectionChanged: saving
     : (selected) {
 setDialogState(() {
 type = selected.first;
+
 categoryController.text =
 type == TransactionType.income
 ? 'Salary'
@@ -221,22 +190,29 @@ type == TransactionType.income
 },
 ),
 const SizedBox(height: 12),
+
+// Category
 TextFormField(
-controller: titleController,
+controller: categoryController,
 enabled: !saving,
-decoration: const InputDecoration(
-labelText: 'Transaction Title',
-border: OutlineInputBorder(),
+textCapitalization: TextCapitalization.words,
+decoration: InputDecoration(
+labelText: 'Category',
+hintText: categories.join(', '),
+border: const OutlineInputBorder(),
 ),
 validator: (value) {
 if (value == null ||
 value.trim().isEmpty) {
-return 'Please enter a transaction title';
- }
+return 'Please enter a category';
+}
+
 return null;
 },
 ),
 const SizedBox(height: 12),
+
+// Amount
 TextFormField(
 controller: amountController,
 enabled: !saving,
@@ -252,8 +228,7 @@ validator: (value) {
 final amount = double.tryParse(
 value?.trim() ?? '',
 );
-
-if (amount == null ||
+ if (amount == null ||
 !amount.isFinite ||
 amount <= 0) {
 return 'Enter an amount greater than zero';
@@ -263,35 +238,8 @@ return null;
 },
 ),
 const SizedBox(height: 12),
-TextFormField(
-controller: categoryController,
-enabled: !saving,
-textCapitalization:
-TextCapitalization.words,
-decoration: InputDecoration(
-labelText: 'Category',
-hintText: categories.join(', '),
-border: const OutlineInputBorder(),
-),
-validator: (value) {
-if (value == null ||
-value.trim().isEmpty) {
-return 'Please enter a category';
-}
-return null;
-},
-),
-const SizedBox(height: 12),
-TextFormField(
-controller: noteController,
-enabled: !saving,
-maxLines: 2,
-decoration: const InputDecoration(
-labelText: 'Note (optional)',
-border: OutlineInputBorder(),
-),
-),
-const SizedBox(height: 12),
+
+// Date
 OutlinedButton.icon(
 onPressed: saving
 ? null
@@ -318,12 +266,12 @@ label: Text(
 ],
 ),
 ),
- ),
+),
 actions: [
 TextButton(
 onPressed: saving
 ? null
-    : () => Navigator.of(stateContext).pop(),
+    : () => Navigator.of(dialogContext).pop(),
 child: const Text('Cancel'),
 ),
 FilledButton(
@@ -338,10 +286,8 @@ child: Text(saving ? 'Saving...' : 'Save'),
 );
 } finally {
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    titleController.dispose();
     amountController.dispose();
     categoryController.dispose();
-    noteController.dispose();
   });
 }
 }
@@ -406,7 +352,7 @@ _filterTransactions(transactions);
 return Scaffold(
 appBar: AppBar(
 title: const Text(
-'Transactions',
+ 'Transactions',
 style: TextStyle(fontWeight: FontWeight.bold),
 ),
 ),
@@ -472,33 +418,6 @@ borderRadius: BorderRadius.circular(14),
 ),
 ),
 ),
-Padding(
-padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-child: DropdownButtonFormField<String>(
-initialValue: _selectedFilter,
-isExpanded: true,
-decoration: InputDecoration(
-labelText: 'Filter transactions',
-prefixIcon: const Icon(Icons.filter_list),
-border: OutlineInputBorder(
-borderRadius: BorderRadius.circular(14),
-),
-),
-items: _filterOptions.map((option) {
-return DropdownMenuItem<String>(
-value: option,
-child: Text(option),
-);
-}).toList(),
-onChanged: (value) {
-if (value != null) {
-setState(() {
-_selectedFilter = value;
-});
-}
-},
-),
-),
 Expanded(
 child: filteredTransactions.isEmpty
 ? Center(
@@ -556,7 +475,7 @@ onSelected: (value) {
 if (value == 'edit') {
 showTransactionForm(
 transaction: item,
- );
+);
 } else if (value == 'delete') {
 deleteTransaction(item);
 }
