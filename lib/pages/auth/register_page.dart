@@ -1,8 +1,8 @@
  import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import '../../services/auth_service.dart';
 import 'login_page.dart';
-
 
 class RegisterPage extends StatefulWidget {
 const RegisterPage({super.key});
@@ -39,38 +39,50 @@ if (!_formKey.currentState!.validate()) return;
 setState(() => _isLoading = true);
 
 try {
-  final credential = await _authService.register(
-    email: _emailController.text.trim(),
-    password: _passwordController.text,
-    fullName: _nameController.text.trim(),
-  );
+await _authService.register(
+email: _emailController.text.trim(),
+password: _passwordController.text,
+fullName: _nameController.text.trim(),
+);
 
-  debugPrint(
-    'REGISTER UID: ${credential.user?.uid}',
-  );
-  debugPrint(
-    'CURRENT UID: ${FirebaseAuth.instance.currentUser?.uid}',
-  );
-  debugPrint('AUTH STATE: ${FirebaseAuth.instance.currentUser}');
-  debugPrint(
-    'REGISTER UID: ${credential.user?.uid}',
-  );
-
-  debugPrint(
-    'CURRENT UID: ${FirebaseAuth.instance.currentUser?.uid}',
-  );
-
-  if (!mounted) return;
-
-  // Firebase AuthGate က Home ကို အလိုအလျောက် ပြောင်းပေးပါမယ်။
-
-
-} on Exception catch (e) {
 if (!mounted) return;
 
+// AuthGate observes Firebase auth changes.
+// Return to its root route so it can display Home.
+Navigator.of(context).popUntil((route) => route.isFirst);
+} on FirebaseAuthException catch (e) {
+if (!mounted) return;
+
+String message;
+
+switch (e.code) {
+case 'email-already-in-use':
+message = 'This email is already registered.';
+break;
+case 'invalid-email':
+message = 'Please enter a valid email address.';
+break;
+case 'weak-password':
+message = 'Please choose a stronger password.';
+break;
+case 'network-request-failed':
+message = 'Check your internet connection and try again.';
+break;
+default:
+message = e.message ?? 'Registration failed.';
+}
+
 ScaffoldMessenger.of(context).showSnackBar(
-SnackBar(
-content: Text('Registration failed: $e'),
+SnackBar(content: Text(message)),
+);
+} catch (e) {
+if (!mounted) return;
+
+debugPrint('Registration error: $e');
+
+ScaffoldMessenger.of(context).showSnackBar(
+const SnackBar(
+content: Text('Registration failed. Please try again.'),
 ),
 );
 } finally {
@@ -117,8 +129,7 @@ const Text(
 textAlign: TextAlign.center,
 ),
 const SizedBox(height: 28),
-
-TextFormField(
+ TextFormField(
 controller: _nameController,
 textCapitalization: TextCapitalization.words,
 decoration: const InputDecoration(
@@ -137,7 +148,7 @@ const SizedBox(height: 16),
 
 TextFormField(
 controller: _emailController,
- keyboardType: TextInputType.emailAddress,
+keyboardType: TextInputType.emailAddress,
 decoration: const InputDecoration(
 labelText: 'Email',
 prefixIcon: Icon(Icons.email_outlined),
@@ -145,11 +156,13 @@ border: OutlineInputBorder(),
 ),
 validator: (value) {
 final email = value?.trim() ?? '';
+
 if (!RegExp(
 r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
 ).hasMatch(email)) {
 return 'Enter a valid email address';
 }
+
 return null;
 },
 ),
@@ -213,7 +226,6 @@ return null;
 },
 ),
 const SizedBox(height: 24),
-
 SizedBox(
 height: 52,
 child: FilledButton(
@@ -228,7 +240,7 @@ width: 22,
 child: CircularProgressIndicator(
 strokeWidth: 2,
 color: Colors.white,
- ),
+),
 )
     : const Text(
 'Create Account',
@@ -243,7 +255,9 @@ mainAxisAlignment: MainAxisAlignment.center,
 children: [
 const Text('Already have an account?'),
 TextButton(
-onPressed: () {
+onPressed: _isLoading
+? null
+    : () {
 Navigator.pushReplacement(
 context,
 MaterialPageRoute(

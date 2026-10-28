@@ -1,4 +1,4 @@
-import 'package:fl_chart/fl_chart.dart';
+ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../models/transaction_model.dart';
@@ -14,8 +14,8 @@ required this.transactions,
 @override
 Widget build(BuildContext context) {
 final theme = Theme.of(context);
-
 final now = DateTime.now();
+final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
 
 final monthlyTransactions = transactions.where((transaction) {
 return transaction.date.year == now.year &&
@@ -27,29 +27,18 @@ return monthlyTransactions
     .where((transaction) =>
 transaction.type == type &&
 transaction.date.day == day)
-    .fold(0.0, (sum, transaction) => sum + transaction.amount);
+    .fold<double>(0, (sum, transaction) => sum + transaction.amount);
 }
-
-final days = List.generate(7, (index) {
-return now.day - 6 + index;
-}).where((day) => day > 0).toList();
 
 final incomeSpots = <FlSpot>[];
 final expenseSpots = <FlSpot>[];
 
-for (var i = 0; i < days.length; i++) {
+for (var day = 1; day <= daysInMonth; day++) {
 incomeSpots.add(
-FlSpot(
-i.toDouble(),
-getTotal(TransactionType.income, days[i]),
-),
+FlSpot(day.toDouble(), getTotal(TransactionType.income, day)),
 );
-
 expenseSpots.add(
-FlSpot(
-i.toDouble(),
-getTotal(TransactionType.expense, days[i]),
-),
+FlSpot(day.toDouble(), getTotal(TransactionType.expense, day)),
 );
 }
 
@@ -101,12 +90,14 @@ label: 'Expense',
 ),
 const SizedBox(height: 20),
 SizedBox(
-height: 220,
+height: 240,
 child: LineChart(
 LineChartData(
+minX: 1,
+maxX: daysInMonth.toDouble(),
 minY: 0,
 maxY: chartMaxY,
-gridData: FlGridData(
+gridData: const FlGridData(
 show: true,
 drawVerticalLine: false,
 ),
@@ -124,7 +115,7 @@ showTitles: true,
 reservedSize: 42,
 getTitlesWidget: (value, meta) {
 return Text(
- value >= 1000
+value >= 1000
 ? '${(value / 1000).toStringAsFixed(0)}k'
     : value.toStringAsFixed(0),
 style: theme.textTheme.bodySmall,
@@ -135,18 +126,20 @@ style: theme.textTheme.bodySmall,
 bottomTitles: AxisTitles(
 sideTitles: SideTitles(
 showTitles: true,
-interval: 1,
+interval: 5,
 getTitlesWidget: (value, meta) {
-final index = value.toInt();
+final day = value.toInt();
 
-if (index < 0 || index >= days.length) {
+if (day < 1 ||
+day > daysInMonth ||
+value != day.toDouble()) {
 return const SizedBox.shrink();
 }
 
 return Padding(
 padding: const EdgeInsets.only(top: 8),
 child: Text(
-'${days[index]}',
+'$day',
 style: theme.textTheme.bodySmall,
 ),
 );

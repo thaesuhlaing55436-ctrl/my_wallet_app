@@ -138,12 +138,14 @@ await user.updateDisplayName(name);
 
 if (!mounted) return;
 
+FocusScope.of(context).unfocus();
+
 setState(() {});
 
 ScaffoldMessenger.of(context).showSnackBar(
-const SnackBar(
-content: Text('Profile saved successfully!'),
-),
+ const SnackBar(
+  content: Text('Profile saved successfully!'),
+ ),
 );
 } catch (e) {
 debugPrint('Save profile error: $e');

@@ -23,7 +23,7 @@ class AppDatabase {
 
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE transactions (
@@ -33,9 +33,17 @@ class AppDatabase {
             category TEXT NOT NULL,
             date TEXT NOT NULL,
             type TEXT NOT NULL,
-            note TEXT
+            note TEXT,
+            userId TEXT
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE transactions ADD COLUMN userId TEXT',
+          );
+        }
       },
     );
   }

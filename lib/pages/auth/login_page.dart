@@ -1,8 +1,8 @@
- import 'package:flutter/material.dart';
+
+import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
 import 'register_page.dart';
-import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
 const LoginPage({super.key});
@@ -46,8 +46,6 @@ const SnackBar(
 content: Text('Login successful!'),
 ),
 );
-
-
 } on Exception catch (e) {
 if (!mounted) return;
 
@@ -127,10 +125,10 @@ const SizedBox(height: 18),
 TextFormField(
 controller: _passwordController,
 obscureText: _hidePassword,
- decoration: InputDecoration(
+decoration: InputDecoration(
 labelText: 'Password',
 prefixIcon: const Icon(Icons.lock_outline),
-border: const OutlineInputBorder(),
+ border: const OutlineInputBorder(),
 suffixIcon: IconButton(
 onPressed: () {
 setState(() {
@@ -153,22 +151,7 @@ return null;
 },
 ),
 
-Align(
-alignment: Alignment.centerRight,
-child: TextButton(
-onPressed: () {
-Navigator.push(
-context,
-MaterialPageRoute(
-builder: (_) =>
-const ForgotPasswordPage(),
-),
-);
-},
-child: const Text('Forgot Password?'),
-),
-),
-const SizedBox(height: 12),
+const SizedBox(height: 24),
 
 SizedBox(
 height: 52,

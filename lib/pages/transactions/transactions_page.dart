@@ -211,27 +211,51 @@ return null;
 ),
 const SizedBox(height: 12),
 
-DropdownButtonFormField<String>(
-initialValue: category,
-isExpanded: true,
-decoration: const InputDecoration(
-labelText: 'Category',
-border: OutlineInputBorder(),
-),
-items: categories.map((item) {
-return DropdownMenuItem<String>(
-value: item,
-child: Text(item),
-);
-}).toList(),
-onChanged: (value) {
-if (value != null) {
-setDialogState(() {
-category = value;
-});
-}
-},
-),
+  Autocomplete<String>(
+    key: ValueKey(type),
+    initialValue: TextEditingValue(text: category),
+    optionsBuilder: (textEditingValue) {
+      final query = textEditingValue.text.trim().toLowerCase();
+
+      if (query.isEmpty) {
+        return categories;
+      }
+
+      return categories.where(
+            (item) => item.toLowerCase().contains(query),
+      );
+    },
+    onSelected: (value) {
+      category = value;
+    },
+    fieldViewBuilder: (
+        context,
+        textController,
+        focusNode,
+        onFieldSubmitted,
+        ) {
+      return TextFormField(
+        controller: textController,
+        focusNode: focusNode,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(
+          labelText: 'Category',
+          hintText: 'Choose or type a category',
+          prefixIcon: Icon(Icons.category_outlined),
+          border: OutlineInputBorder(),
+        ),
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'Please enter a category';
+          }
+          return null;
+        },
+        onChanged: (value) {
+          category = value.trim();
+        },
+      );
+    },
+  ),
 const SizedBox(height: 12),
  TextFormField(
 controller: noteController,
@@ -294,7 +318,7 @@ DateTime.now()
     .toString(),
 title: titleController.text.trim(),
 amount: amount,
-category: category,
+category: category.trim(),
 date: date,
 type: type,
 note: noteController.text.trim().isEmpty

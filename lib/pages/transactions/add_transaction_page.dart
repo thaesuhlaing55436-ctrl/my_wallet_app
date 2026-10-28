@@ -1,4 +1,5 @@
- import 'package:flutter/material.dart';
+
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -13,8 +14,7 @@ State<AddTransactionPage> createState() =>
 _AddTransactionPageState();
 }
 
-class _AddTransactionPageState
-extends State<AddTransactionPage> {
+class _AddTransactionPageState extends State<AddTransactionPage> {
 final _formKey = GlobalKey<FormState>();
 final _titleController = TextEditingController();
 final _amountController = TextEditingController();
@@ -45,14 +45,19 @@ firstDate: DateTime(2000),
 lastDate: DateTime.now(),
 );
 
-if (selected != null && mounted) {
+if (!mounted) return;
+
+if (selected != null) {
 setState(() => _date = selected);
 }
 }
 
 Future<void> _saveTransaction() async {
+if (_saving) return;
+
 if (!_formKey.currentState!.validate()) return;
 
+FocusScope.of(context).unfocus();
 setState(() => _saving = true);
 
 try {
@@ -74,18 +79,18 @@ await context
 
 if (!mounted) return;
 
-ScaffoldMessenger.of(context).showSnackBar(
-const SnackBar(
-content: Text('Transaction saved successfully!'),
-),
-);
-
 Navigator.pop(context, true);
-} catch (e) {
+} catch (e, stackTrace) {
+debugPrint('Save transaction failed: $e');
+debugPrintStack(stackTrace: stackTrace);
+
 if (!mounted) return;
 
 ScaffoldMessenger.of(context).showSnackBar(
-SnackBar(content: Text('Save failed: $e')),
+SnackBar(
+content: Text('Save failed: $e'),
+duration: const Duration(seconds: 5),
+),
 );
 } finally {
 if (mounted) {
@@ -106,6 +111,14 @@ super.dispose();
 Widget build(BuildContext context) {
 final colors = Theme.of(context).colorScheme;
 
+final availableCategories = _categories.where((category) {
+if (_type == TransactionType.income) {
+return ['Salary', 'Business', 'Other'].contains(category);
+}
+
+return category != 'Salary' && category != 'Business';
+}).toList();
+
 return Scaffold(
 appBar: AppBar(
 title: const Text('Add Transaction'),
@@ -118,12 +131,12 @@ padding: const EdgeInsets.all(20),
 children: [
 SegmentedButton<TransactionType>(
 segments: const [
-ButtonSegment(
+ButtonSegment<TransactionType>(
 value: TransactionType.income,
 label: Text('Income'),
 icon: Icon(Icons.trending_up),
 ),
-ButtonSegment(
+ButtonSegment<TransactionType>(
 value: TransactionType.expense,
 label: Text('Expense'),
 icon: Icon(Icons.trending_down),
@@ -142,7 +155,7 @@ _category = _type == TransactionType.income
 const SizedBox(height: 24),
 
 TextFormField(
- controller: _titleController,
+controller: _titleController,
 textCapitalization: TextCapitalization.sentences,
 decoration: const InputDecoration(
 labelText: 'Title',
@@ -162,21 +175,18 @@ const SizedBox(height: 16),
 TextFormField(
 controller: _amountController,
 keyboardType:
-const TextInputType.numberWithOptions(
-decimal: true,
-),
+const TextInputType.numberWithOptions(decimal: true),
 decoration: const InputDecoration(
-labelText: 'Amount',
+labelText: 'Amount (MMK)',
 hintText: 'Enter amount',
 prefixIcon: Icon(Icons.payments_outlined),
 border: OutlineInputBorder(),
 ),
 validator: (value) {
-final amount = double.tryParse(
-value?.trim() ?? '',
-);
+final amount = double.tryParse(value?.trim() ?? '');
 
-if (amount == null || !amount.isFinite ||
+if (amount == null ||
+!amount.isFinite ||
 amount <= 0) {
 return 'Enter a valid amount greater than 0';
 }
@@ -193,23 +203,12 @@ labelText: 'Category',
 prefixIcon: Icon(Icons.category_outlined),
 border: OutlineInputBorder(),
 ),
-items: _categories
-    .where((category) =>
-_type == TransactionType.income
-? [
-'Salary',
-'Business',
-'Other',
-].contains(category)
-    : category != 'Salary' &&
-category != 'Business')
-    .map(
-(category) => DropdownMenuItem(
+items: availableCategories.map((category) {
+return DropdownMenuItem<String>(
 value: category,
 child: Text(category),
-),
-)
-    .toList(),
+);
+}).toList(),
 onChanged: (value) {
 if (value != null) {
 setState(() => _category = value);
@@ -247,11 +246,10 @@ border: OutlineInputBorder(),
 ),
 ),
 const SizedBox(height: 28),
-SizedBox(
+ SizedBox(
 height: 52,
 child: FilledButton.icon(
-onPressed:
-_saving ? null : _saveTransaction,
+onPressed: _saving ? null : _saveTransaction,
 icon: _saving
 ? const SizedBox(
 height: 20,
