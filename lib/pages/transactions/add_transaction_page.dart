@@ -7,11 +7,16 @@ import '../../models/transaction_model.dart';
 import '../../services/wallet_service.dart';
 
 class AddTransactionPage extends StatefulWidget {
-const AddTransactionPage({super.key});
+ final WalletService? walletService;
 
-@override
-State<AddTransactionPage> createState() =>
-_AddTransactionPageState();
+ const AddTransactionPage({
+  super.key,
+  this.walletService,
+ });
+
+ @override
+ State<AddTransactionPage> createState() =>
+     _AddTransactionPageState();
 }
 
 class _AddTransactionPageState extends State<AddTransactionPage> {
@@ -73,9 +78,10 @@ note: _noteController.text.trim().isEmpty
     : _noteController.text.trim(),
 );
 
-await context
-    .read<WalletService>()
-    .addTransaction(transaction);
+final service =
+    widget.walletService ?? context.read<WalletService>();
+
+await service.addTransaction(transaction);
 
 if (!mounted) return;
 

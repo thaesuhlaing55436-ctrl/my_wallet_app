@@ -1,31 +1,29 @@
-
-
-import 'package:flutter/material.dart';
+ import 'package:flutter/material.dart';
 
 import '../../models/transaction_model.dart';
 import '../../services/wallet_service.dart';
 
 class TransactionsPage extends StatefulWidget {
 final WalletService walletService;
+final String initialFilter;
 
 const TransactionsPage({
 super.key,
 required this.walletService,
+this.initialFilter = 'All',
 });
 
 @override
-State<TransactionsPage> createState() =>
-_TransactionsPageState();
+State<TransactionsPage> createState() => _TransactionsPageState();
 }
 
 class _TransactionsPageState extends State<TransactionsPage> {
 WalletService get wallet => widget.walletService;
 
 String _searchQuery = '';
-String _selectedFilter = 'All';
+late String _selectedFilter = widget.initialFilter;
 
-String money(double amount) =>
-'${amount.toStringAsFixed(0)} MMK';
+String money(double amount) => '${amount.toStringAsFixed(0)} MMK';
 
 static const List<String> _filterOptions = [
 'All',
@@ -78,21 +76,18 @@ final formKey = GlobalKey<FormState>();
 final titleController = TextEditingController(
 text: transaction?.title ?? '',
 );
-
 final amountController = TextEditingController(
-text: transaction == null
-? ''
-    : transaction.amount.toStringAsFixed(0),
+text: transaction == null ? '' : transaction.amount.toString(),
 );
-
+final categoryController = TextEditingController(
+text: transaction?.category ?? 'Food',
+);
 final noteController = TextEditingController(
 text: transaction?.note ?? '',
 );
 
 TransactionType type =
 transaction?.type ?? TransactionType.expense;
-
-String category = transaction?.category ?? 'Food';
 DateTime date = transaction?.date ?? DateTime.now();
 
 const incomeCategories = [
@@ -112,19 +107,79 @@ const expenseCategories = [
 'Other',
 ];
 
+bool saving = false;
+
 try {
 await showDialog<void>(
 context: context,
+barrierDismissible: false,
 builder: (dialogContext) {
 return StatefulBuilder(
-builder: (dialogContext, setDialogState) {
-final categories =
-type == TransactionType.income
+builder: (stateContext, setDialogState) {
+final categories = type == TransactionType.income
 ? incomeCategories
     : expenseCategories;
 
-if (!categories.contains(category)) {
-category = categories.first;
+Future<void> saveTransaction() async {
+if (saving) return;
+
+if (!(formKey.currentState?.validate() ?? false)) {
+return;
+}
+
+setDialogState(() {
+saving = true;
+});
+
+final newTransaction = TransactionModel(
+id: transaction?.id ??
+DateTime.now()
+    .microsecondsSinceEpoch
+    .toString(),
+title: titleController.text.trim(),
+amount: double.parse(
+amountController.text.trim(),
+),
+category: categoryController.text.trim(),
+date: date,
+type: type,
+note: noteController.text.trim().isEmpty
+? null
+    : noteController.text.trim(),
+);
+
+try {
+if (transaction == null) {
+await wallet.addTransaction(newTransaction);
+} else {
+await wallet.updateTransaction(newTransaction);
+}
+
+if (!mounted || !dialogContext.mounted) return;
+
+Navigator.of(dialogContext).pop();
+} catch (error, stackTrace) {
+debugPrint('Save transaction error: $error');
+debugPrintStack(stackTrace: stackTrace);
+
+if (stateContext.mounted) {
+setDialogState(() {
+saving = false;
+});
+}
+
+if (mounted) {
+ScaffoldMessenger.of(context)
+..hideCurrentSnackBar()
+..showSnackBar(
+SnackBar(
+content: Text(
+'Could not save transaction: $error',
+),
+),
+);
+}
+}
 }
 
 return AlertDialog(
@@ -141,52 +196,50 @@ mainAxisSize: MainAxisSize.min,
 children: [
 SegmentedButton<TransactionType>(
 segments: const [
-ButtonSegment(
+ButtonSegment<TransactionType>(
 value: TransactionType.expense,
 label: Text('Expense'),
- icon: Icon(Icons.arrow_upward),
+icon: Icon(Icons.arrow_upward),
 ),
-ButtonSegment(
+ButtonSegment<TransactionType>(
 value: TransactionType.income,
 label: Text('Income'),
 icon: Icon(Icons.arrow_downward),
 ),
 ],
 selected: {type},
-onSelectionChanged: (selected) {
+onSelectionChanged: saving
+? null
+    : (selected) {
 setDialogState(() {
 type = selected.first;
-category =
+categoryController.text =
 type == TransactionType.income
-? incomeCategories.first
-    : expenseCategories.first;
+? 'Salary'
+    : 'Food';
 });
 },
 ),
 const SizedBox(height: 12),
-
-  TextFormField(
-    controller: titleController,
-    enabled: true,
-    keyboardType: TextInputType.text,
-    textCapitalization: TextCapitalization.sentences,
-    decoration: const InputDecoration(
-      labelText: 'Transaction Title',
-      hintText: 'Enter title, e.g. Lunch or Salary',
-      prefixIcon: Icon(Icons.edit_note),
-      border: OutlineInputBorder(),
-    ),
-    validator: (value) {
-      if (value == null || value.trim().isEmpty) {
-        return 'Please enter a transaction title';
-      }
-      return null;
-    },
-  ),
+TextFormField(
+controller: titleController,
+enabled: !saving,
+decoration: const InputDecoration(
+labelText: 'Transaction Title',
+border: OutlineInputBorder(),
+),
+validator: (value) {
+if (value == null ||
+value.trim().isEmpty) {
+return 'Please enter a transaction title';
+ }
+return null;
+},
+),
 const SizedBox(height: 12),
-
 TextFormField(
 controller: amountController,
+enabled: !saving,
 keyboardType:
 const TextInputType.numberWithOptions(
 decimal: true,
@@ -210,55 +263,28 @@ return null;
 },
 ),
 const SizedBox(height: 12),
-
-  Autocomplete<String>(
-    key: ValueKey(type),
-    initialValue: TextEditingValue(text: category),
-    optionsBuilder: (textEditingValue) {
-      final query = textEditingValue.text.trim().toLowerCase();
-
-      if (query.isEmpty) {
-        return categories;
-      }
-
-      return categories.where(
-            (item) => item.toLowerCase().contains(query),
-      );
-    },
-    onSelected: (value) {
-      category = value;
-    },
-    fieldViewBuilder: (
-        context,
-        textController,
-        focusNode,
-        onFieldSubmitted,
-        ) {
-      return TextFormField(
-        controller: textController,
-        focusNode: focusNode,
-        textCapitalization: TextCapitalization.words,
-        decoration: const InputDecoration(
-          labelText: 'Category',
-          hintText: 'Choose or type a category',
-          prefixIcon: Icon(Icons.category_outlined),
-          border: OutlineInputBorder(),
-        ),
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return 'Please enter a category';
-          }
-          return null;
-        },
-        onChanged: (value) {
-          category = value.trim();
-        },
-      );
-    },
-  ),
+TextFormField(
+controller: categoryController,
+enabled: !saving,
+textCapitalization:
+TextCapitalization.words,
+decoration: InputDecoration(
+labelText: 'Category',
+hintText: categories.join(', '),
+border: const OutlineInputBorder(),
+),
+validator: (value) {
+if (value == null ||
+value.trim().isEmpty) {
+return 'Please enter a category';
+}
+return null;
+},
+),
 const SizedBox(height: 12),
- TextFormField(
+TextFormField(
 controller: noteController,
+enabled: !saving,
 maxLines: 2,
 decoration: const InputDecoration(
 labelText: 'Note (optional)',
@@ -266,26 +292,25 @@ border: OutlineInputBorder(),
 ),
 ),
 const SizedBox(height: 12),
-
 OutlinedButton.icon(
-onPressed: () async {
+onPressed: saving
+? null
+    : () async {
 final picked = await showDatePicker(
-context: dialogContext,
+context: stateContext,
 initialDate: date,
 firstDate: DateTime(2000),
 lastDate: DateTime.now(),
 );
 
 if (picked != null &&
-dialogContext.mounted) {
+stateContext.mounted) {
 setDialogState(() {
 date = picked;
 });
 }
 },
-icon: const Icon(
-Icons.calendar_month,
-),
+icon: const Icon(Icons.calendar_month),
 label: Text(
 '${date.day}/${date.month}/${date.year}',
 ),
@@ -293,68 +318,17 @@ label: Text(
 ],
 ),
 ),
-),
+ ),
 actions: [
 TextButton(
-onPressed: () {
-Navigator.pop(dialogContext);
-},
+onPressed: saving
+? null
+    : () => Navigator.of(stateContext).pop(),
 child: const Text('Cancel'),
 ),
 FilledButton(
-onPressed: () async {
-if (!formKey.currentState!.validate()) {
-return;
-}
-
-final amount = double.parse(
-amountController.text.trim(),
-);
-
-final newTransaction = TransactionModel(
-id: transaction?.id ??
-DateTime.now()
-    .microsecondsSinceEpoch
-    .toString(),
-title: titleController.text.trim(),
-amount: amount,
-category: category.trim(),
-date: date,
-type: type,
-note: noteController.text.trim().isEmpty
-? null
-    : noteController.text.trim(),
-);
-
-try {
-if (transaction == null) {
-await wallet.addTransaction(
-newTransaction,
-);
-} else {
-await wallet.updateTransaction(
-newTransaction,
-);
-}
-
-if (!dialogContext.mounted) return;
-
-Navigator.pop(dialogContext);
-} catch (error) {
-if (!dialogContext.mounted) return;
-
-ScaffoldMessenger.of(
-dialogContext,
-).showSnackBar(
-SnackBar(
-content: Text(
-'Could not save transaction: $error',
-),
-),
-);
-}
-},
-child: const Text('Save'),
+onPressed: saving ? null : saveTransaction,
+child: Text(saving ? 'Saving...' : 'Save'),
 ),
 ],
 );
@@ -363,14 +337,16 @@ child: const Text('Save'),
 },
 );
 } finally {
-titleController.dispose();
-amountController.dispose();
-noteController.dispose();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    titleController.dispose();
+    amountController.dispose();
+    categoryController.dispose();
+    noteController.dispose();
+  });
 }
 }
- Future<void> deleteTransaction(
-TransactionModel item,
-) async {
+
+Future<void> deleteTransaction(TransactionModel item) async {
 final confirmed = await showDialog<bool>(
 context: context,
 builder: (dialogContext) {
@@ -380,13 +356,13 @@ content: Text('Delete "${item.title}"?'),
 actions: [
 TextButton(
 onPressed: () {
-Navigator.pop(dialogContext, false);
+Navigator.of(dialogContext).pop(false);
 },
 child: const Text('Cancel'),
 ),
 FilledButton(
 onPressed: () {
-Navigator.pop(dialogContext, true);
+Navigator.of(dialogContext).pop(true);
 },
 child: const Text('Delete'),
 ),
@@ -395,7 +371,8 @@ child: const Text('Delete'),
 },
 );
 
-if (confirmed == true && mounted) {
+if (confirmed != true || !mounted) return;
+
 try {
 await wallet.deleteTransaction(item.id);
 } catch (error) {
@@ -403,12 +380,9 @@ if (!mounted) return;
 
 ScaffoldMessenger.of(context).showSnackBar(
 SnackBar(
-content: Text(
-'Could not delete transaction: $error',
-),
+content: Text('Could not delete transaction: $error'),
 ),
 );
-}
 }
 }
 
@@ -433,9 +407,7 @@ return Scaffold(
 appBar: AppBar(
 title: const Text(
 'Transactions',
-style: TextStyle(
-fontWeight: FontWeight.bold,
-),
+style: TextStyle(fontWeight: FontWeight.bold),
 ),
 ),
 body: Column(
@@ -473,11 +445,8 @@ const Color(0xFFE85D75),
 ),
 ),
 const Divider(height: 1),
-
 Padding(
-padding: const EdgeInsets.fromLTRB(
-16, 12, 16, 8,
-),
+padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
 child: TextField(
 onChanged: (value) {
 setState(() {
@@ -504,9 +473,7 @@ borderRadius: BorderRadius.circular(14),
 ),
 ),
 Padding(
-padding: const EdgeInsets.fromLTRB(
-16, 0, 16, 8,
-),
+padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
 child: DropdownButtonFormField<String>(
 initialValue: _selectedFilter,
 isExpanded: true,
@@ -532,7 +499,6 @@ _selectedFilter = value;
 },
 ),
 ),
-
 Expanded(
 child: filteredTransactions.isEmpty
 ? Center(
@@ -547,9 +513,7 @@ textAlign: TextAlign.center,
 padding: const EdgeInsets.all(12),
 itemCount: filteredTransactions.length,
 itemBuilder: (context, index) {
-final item =
-filteredTransactions[index];
-
+final item = filteredTransactions[index];
 final isIncome =
 item.type == TransactionType.income;
 
@@ -591,12 +555,12 @@ PopupMenuButton<String>(
 onSelected: (value) {
 if (value == 'edit') {
 showTransactionForm(
- transaction: item,
-);
+transaction: item,
+ );
 } else if (value == 'delete') {
 deleteTransaction(item);
 }
- },
+},
 itemBuilder: (context) => const [
 PopupMenuItem<String>(
 value: 'edit',

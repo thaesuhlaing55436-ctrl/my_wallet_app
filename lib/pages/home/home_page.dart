@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/wallet_service.dart';
 import '../../models/transaction_model.dart';
+import '../transactions/transactions_page.dart';
 
 class HomePage extends StatelessWidget {
 final WalletService walletService;
@@ -126,11 +127,14 @@ style: TextStyle(color: Colors.white70),
 ),
 const SizedBox(height: 20),
 
+
+
 // Income and Expense
 Row(
 children: [
 Expanded(
 child: _summaryCard(
+  context: context,
 title: 'Income',
 amount: walletService.totalIncome,
 icon: Icons.arrow_downward_rounded,
@@ -140,6 +144,7 @@ color: incomeGreen,
 const SizedBox(width: 14),
 Expanded(
 child: _summaryCard(
+  context: context,
 title: 'Expense',
 amount: walletService.totalExpense,
 icon: Icons.arrow_upward_rounded,
@@ -234,54 +239,68 @@ return _transactionTile(
 }
 
 Widget _summaryCard({
+  required BuildContext context,
   required String title,
   required double amount,
   required IconData icon,
   required Color color,
 }) {
-  return Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFE8EDF4)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(9),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          title,
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 13,
+  return InkWell(
+    borderRadius: BorderRadius.circular(20),
+    onTap: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TransactionsPage(
+            walletService: walletService,
+            initialFilter: title,
           ),
         ),
-        const SizedBox(height: 6),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            _money(amount),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+      );
+    },
+    child: Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8EDF4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 13,
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _money(amount),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
-
 Widget _transactionTile({
   required String title,
   required String subtitle,
