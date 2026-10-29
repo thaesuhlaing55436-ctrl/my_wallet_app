@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:my_wallet_app/ui/design_system/theme/app_theme.dart';
+import 'package:my_wallet_app/ui/design_system/theme/theme_controller.dart';
+import 'package:my_wallet_app/ui/pages/auth/login_page.dart';
+import 'package:my_wallet_app/ui/pages/main_navigation_page.dart';
 
 import 'firebase_options.dart';
-import 'core/theme/app_theme.dart';
-import 'core/theme/theme_controller.dart';
-import 'main_navigation_page.dart';
-import 'pages/auth/login_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

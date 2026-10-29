@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../services/wallet_service.dart';
-import '../../models/transaction_model.dart';
+import '../../../data/models/transaction_model.dart';
+import '../../../data/services/wallet_service.dart';
+
 import '../transactions/transactions_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -223,7 +224,10 @@ final icon = isIncome
 : Icons.arrow_upward_rounded;
 return _transactionTile(
   title: transaction.title,
-  subtitle: transaction.category,
+  subtitle:
+  '${transaction.date.day.toString().padLeft(2, '0')}/'
+      '${transaction.date.month.toString().padLeft(2, '0')}/'
+      '${transaction.date.year}',
   amount: '$sign ${_money(transaction.amount)}',
   icon: icon,
   color: color,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../services/wallet_service.dart';
+import '../../data/services/wallet_service.dart';
+
 
 class BalanceCard extends StatelessWidget {
 final WalletService walletService;

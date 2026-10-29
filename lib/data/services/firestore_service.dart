@@ -11,11 +11,9 @@ class FirestoreService {
 
   String get _userId {
     final user = _auth.currentUser;
-
     if (user == null) {
       throw Exception('Please log in first.');
     }
-
     return user.uid;
   }
 
@@ -27,13 +25,10 @@ class FirestoreService {
         .collection('transactions');
   }
 
-  // Add a transaction.
-  Future<void> addTransaction(
+  Map<String, dynamic> _toMap(
       TransactionModel transaction,
-      ) async {
-    await _transactionsCollection
-        .doc(transaction.id)
-        .set({
+      ) {
+    return {
       'id': transaction.id,
       'title': transaction.title,
       'amount': transaction.amount,
@@ -41,11 +36,28 @@ class FirestoreService {
       'date': Timestamp.fromDate(transaction.date),
       'type': transaction.type.name,
       'note': transaction.note,
+    };
+  }
+
+  Future<void> addTransaction(
+      TransactionModel transaction,
+      ) async {
+    await _transactionsCollection
+        .doc(transaction.id)
+        .set({
+      ..._toMap(transaction),
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // Get all transactions for the logged-in user.
+  Future<void> updateTransaction(
+      TransactionModel transaction,
+      ) async {
+    await _transactionsCollection
+        .doc(transaction.id)
+        .update(_toMap(transaction));
+  }
+
   Stream<List<TransactionModel>> getTransactions() {
     return _transactionsCollection
         .orderBy('date', descending: true)
@@ -57,7 +69,8 @@ class FirestoreService {
         return TransactionModel(
           id: doc.id,
           title: data['title'] as String? ?? '',
-          amount: (data['amount'] as num?)?.toDouble() ?? 0.0,
+          amount:
+          (data['amount'] as num?)?.toDouble() ?? 0.0,
           category: data['category'] as String? ?? '',
           date: (data['date'] as Timestamp?)?.toDate()
               ?? DateTime.now(),
@@ -70,7 +83,6 @@ class FirestoreService {
     });
   }
 
-  // Delete a transaction.
   Future<void> deleteTransaction(String id) async {
     await _transactionsCollection.doc(id).delete();
   }

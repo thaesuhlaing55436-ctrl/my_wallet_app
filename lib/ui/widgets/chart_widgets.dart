@@ -1,7 +1,8 @@
  import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../models/transaction_model.dart';
+import '../../data/models/transaction_model.dart';
+
 
 class ChartWidget extends StatelessWidget {
 final List<TransactionModel> transactions;

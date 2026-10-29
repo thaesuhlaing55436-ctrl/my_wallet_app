@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'pages/analytics/analytics_page.dart';
-import 'pages/profile/profile_page.dart';
-import 'services/wallet_service.dart';
-import 'pages/home/home_page.dart';
-import 'pages/transactions/transactions_page.dart';
-import 'core/theme/theme_controller.dart';
+import 'package:my_wallet_app/ui/pages/profile/profile_page.dart';
+import 'package:my_wallet_app/ui/pages/transactions/transactions_page.dart';
+import '../../data/services/wallet_service.dart';
+
+import '../design_system/theme/theme_controller.dart';
+import 'analytics/analytics_page.dart';
+import 'home/home_page.dart';
+
+
 class MainNavigationPage extends StatefulWidget {
   final ThemeController themeController;
 

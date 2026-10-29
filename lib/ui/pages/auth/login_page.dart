@@ -1,9 +1,8 @@
 
-import 'package:flutter/material.dart';
-
-import '../../services/auth_service.dart';
-import 'register_page.dart';
-
+import "package:flutter/cupertino.dart";
+import "package:flutter/material.dart";
+import "package:my_wallet_app/ui/pages/auth/register_page.dart";
+import "../../../data/services/auth_service.dart";
 class LoginPage extends StatefulWidget {
 const LoginPage({super.key});
 

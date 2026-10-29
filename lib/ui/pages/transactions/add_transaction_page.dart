@@ -1,9 +1,9 @@
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../models/transaction_model.dart';
-import '../../services/wallet_service.dart';
+import '../../../data/models/transaction_model.dart';
+import '../../../data/services/wallet_service.dart';
 
 class AddTransactionPage extends StatefulWidget {
 final WalletService? walletService;
@@ -18,7 +18,8 @@ State<AddTransactionPage> createState() =>
 _AddTransactionPageState();
 }
 
-class _AddTransactionPageState extends State<AddTransactionPage> {
+class _AddTransactionPageState
+extends State<AddTransactionPage> {
 final _formKey = GlobalKey<FormState>();
 final _amountController = TextEditingController();
 
@@ -56,7 +57,6 @@ setState(() => _date = selected);
 
 Future<void> _saveTransaction() async {
 if (_saving) return;
-
 if (!_formKey.currentState!.validate()) return;
 
 FocusScope.of(context).unfocus();
@@ -73,8 +73,8 @@ type: _type,
 note: null,
 );
 
-final service =
-widget.walletService ?? context.read<WalletService>();
+final service = widget.walletService ??
+context.read<WalletService>();
 
 await service.addTransaction(transaction);
 
@@ -112,10 +112,12 @@ final colors = Theme.of(context).colorScheme;
 
 final availableCategories = _categories.where((category) {
 if (_type == TransactionType.income) {
-return ['Salary', 'Business', 'Other'].contains(category);
+return ['Salary', 'Business', 'Other']
+    .contains(category);
 }
 
-return category != 'Salary' && category != 'Business';
+return category != 'Salary' &&
+category != 'Business';
 }).toList();
 
 return Scaffold(
@@ -145,7 +147,8 @@ selected: {_type},
 onSelectionChanged: (selection) {
 setState(() {
 _type = selection.first;
-_category = _type == TransactionType.income
+_category =
+_type == TransactionType.income
 ? 'Salary'
     : 'Food';
 });
@@ -153,7 +156,6 @@ _category = _type == TransactionType.income
 ),
 
 const SizedBox(height: 24),
-// Category first
 DropdownButtonFormField<String>(
 initialValue: _category,
 isExpanded: true,
@@ -177,7 +179,6 @@ setState(() => _category = value);
 
 const SizedBox(height: 16),
 
-// Amount below category
 TextFormField(
 controller: _amountController,
 keyboardType:
@@ -228,7 +229,8 @@ const SizedBox(height: 28),
 SizedBox(
 height: 52,
 child: FilledButton.icon(
-onPressed: _saving ? null : _saveTransaction,
+onPressed:
+_saving ? null : _saveTransaction,
 icon: _saving
 ? const SizedBox(
 height: 20,
@@ -239,7 +241,9 @@ strokeWidth: 2,
 )
     : const Icon(Icons.save_outlined),
 label: Text(
-_saving ? 'Saving...' : 'Save Transaction',
+_saving
+? 'Saving...'
+    : 'Save Transaction',
 ),
 ),
 ),
@@ -247,7 +251,7 @@ _saving ? 'Saving...' : 'Save Transaction',
 const SizedBox(height: 12),
 
 Text(
-'Your transaction will be saved on this device.',
+'Your transaction will sync with your account.',
 textAlign: TextAlign.center,
 style: TextStyle(
 color: colors.onSurfaceVariant,

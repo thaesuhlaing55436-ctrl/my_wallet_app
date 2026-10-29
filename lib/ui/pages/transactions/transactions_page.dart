@@ -1,7 +1,8 @@
  import 'package:flutter/material.dart';
 
-import '../../models/transaction_model.dart';
-import '../../services/wallet_service.dart';
+import '../../../data/models/transaction_model.dart';
+import '../../../data/services/wallet_service.dart';
+
 
 class TransactionsPage extends StatefulWidget {
 final WalletService walletService;
@@ -21,20 +22,29 @@ class _TransactionsPageState extends State<TransactionsPage> {
 WalletService get wallet => widget.walletService;
 
 String _searchQuery = '';
+final TextEditingController _searchController = TextEditingController();
 
 String money(double amount) => '${amount.toStringAsFixed(0)} MMK';
 
 List<TransactionModel> _filterTransactions(
-List<TransactionModel> transactions,
-) {
-final query = _searchQuery.trim().toLowerCase();
+    List<TransactionModel> transactions,
+    ) {
+  final query = _searchQuery.trim().toLowerCase();
 
-if (query.isEmpty) return transactions;
+  return transactions.where((item) {
+    final matchesSearch =
+        item.title.toLowerCase().contains(query) ||
+            item.category.toLowerCase().contains(query);
 
-return transactions.where((item) {
-return item.title.toLowerCase().contains(query) ||
-item.category.toLowerCase().contains(query);
-}).toList();
+    final matchesFilter =
+        widget.initialFilter == 'All' ||
+            (widget.initialFilter == 'Income' &&
+                item.type == TransactionType.income) ||
+            (widget.initialFilter == 'Expense' &&
+                item.type == TransactionType.expense);
+
+    return matchesSearch && matchesFilter;
+  }).toList();
 }
 
 Future<void> showTransactionForm({
@@ -47,10 +57,7 @@ text: transaction == null ? '' : transaction.amount.toString(),
 );
 
 final categoryController = TextEditingController(
-text: transaction?.category ??
-(transaction?.type == TransactionType.income
-? 'Salary'
-    : 'Food'),
+  text: transaction?.category ?? '',
 );
 
 TransactionType type =
@@ -176,18 +183,13 @@ icon: Icon(Icons.arrow_downward),
 ),
 ],
 selected: {type},
-onSelectionChanged: saving
-? null
-    : (selected) {
-setDialogState(() {
-type = selected.first;
-
-categoryController.text =
-type == TransactionType.income
-? 'Salary'
-    : 'Food';
-});
-},
+  onSelectionChanged: saving
+      ? null
+      : (selected) {
+    setDialogState(() {
+      type = selected.first;
+    });
+  },
 ),
 const SizedBox(height: 12),
 
@@ -198,7 +200,7 @@ enabled: !saving,
 textCapitalization: TextCapitalization.words,
 decoration: InputDecoration(
 labelText: 'Category',
-hintText: categories.join(', '),
+hintText: 'Enter category',
 border: const OutlineInputBorder(),
 ),
 validator: (value) {
@@ -333,6 +335,10 @@ content: Text('Could not delete transaction: $error'),
 }
 
 @override
+void dispose(){
+  _searchController.dispose();
+  super.dispose();
+}
 Widget build(BuildContext context) {
 return AnimatedBuilder(
 animation: wallet,
@@ -393,30 +399,30 @@ const Color(0xFFE85D75),
 const Divider(height: 1),
 Padding(
 padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-child: TextField(
-onChanged: (value) {
-setState(() {
-_searchQuery = value;
-});
-},
-decoration: InputDecoration(
-hintText: 'Search transactions...',
-prefixIcon: const Icon(Icons.search),
-suffixIcon: _searchQuery.isNotEmpty
-? IconButton(
-onPressed: () {
-setState(() {
-_searchQuery = '';
-});
-},
-icon: const Icon(Icons.clear),
-)
-    : null,
-border: OutlineInputBorder(
-borderRadius: BorderRadius.circular(14),
-),
-),
-),
+  child: TextField(
+    controller: _searchController,
+    onChanged: (value) {
+      setState(() {
+        _searchQuery = value;
+      });
+    },
+    decoration: InputDecoration(
+      hintText: 'Search transactions...',
+      prefixIcon: const Icon(Icons.search),
+      suffixIcon: IconButton(
+        onPressed: () {
+          _searchController.clear();
+          setState(() {
+            _searchQuery = '';
+          });
+        },
+        icon: const Icon(Icons.clear),
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+    ),
+  ),
 ),
 Expanded(
 child: filteredTransactions.isEmpty
@@ -453,12 +459,11 @@ color: color,
 ),
 ),
 title: Text(item.title),
-subtitle: Text(
-'${item.category} • '
-'${item.date.day}/'
-'${item.date.month}/'
-'${item.date.year}',
-),
+  subtitle: Text(
+    '${item.date.day}/'
+        '${item.date.month}/'
+        '${item.date.year}',
+  ),
 trailing: Row(
 mainAxisSize: MainAxisSize.min,
 children: [
