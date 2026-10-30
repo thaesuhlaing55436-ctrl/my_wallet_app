@@ -4,39 +4,29 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/transaction_model.dart';
 
 class CategoryService {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
-
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   String get _userId {
     final user = _auth.currentUser;
-
     if (user == null) {
       throw Exception('Please login first.');
     }
-
     return user.uid;
   }
 
-  CollectionReference<Map<String, dynamic>>
-  get _categories =>
-      _firestore
-          .collection('users')
-          .doc(_userId)
-          .collection('categories');
+  DocumentReference<Map<String, dynamic>> _categoryDoc(
+      TransactionType type,
+      ) {
+    final docName = type == TransactionType.income
+        ? 'income_categories'
+        : 'expense_categories';
 
-  String _typeName(TransactionType type) {
-    return type == TransactionType.income
-        ? 'income'
-        : 'expenses';
-  }
-
-  CollectionReference<Map<String, dynamic>>
-  _itemsCollection(TransactionType type) {
-    return _categories
-        .doc(_typeName(type))
-        .collection('items');
+    return _firestore
+        .collection('users')
+        .doc(_userId)
+        .collection('categories')
+        .doc(docName);
   }
 
   static const List<String> incomeCategories = [
@@ -53,69 +43,48 @@ class CategoryService {
     'Bills',
     'Health',
     'Education',
-    'Gift',
-    'Other',
   ];
 
-  Stream<QuerySnapshot<Map<String, dynamic>>>
-  getCategories(TransactionType type) {
-    return _itemsCollection(type)
-        .orderBy('name')
-        .snapshots();
+  Stream<List<String>> getCategories(TransactionType type) {
+    return _categoryDoc(type).snapshots().map((snapshot) {
+      if (!snapshot.exists) return <String>[];
+
+      final data = snapshot.data();
+
+      return List<String>.from(data?['categories'] ?? []);
+    });
   }
 
   Future<void> initializeCategories() async {
     final batch = _firestore.batch();
 
-    // Create Income and Expenses documents
-    batch.set(_categories.doc('income'), {
-      'name': 'Income',
-      'type': 'income',
+    final incomeRef = _categoryDoc(TransactionType.income);
+    final expenseRef = _categoryDoc(TransactionType.expense);
+
+    final incomeSnapshot = await incomeRef.get();
+    final expenseSnapshot = await expenseRef.get();
+
+    final incomeItems = <String>{
+      ...incomeCategories,
+      ...List<String>.from(
+        incomeSnapshot.data()?['categories'] ?? [],
+      ),
+    }.toList();
+
+    final expenseItems = <String>{
+      ...expenseCategories,
+      ...List<String>.from(
+        expenseSnapshot.data()?['categories'] ?? [],
+      ),
+    }.toList();
+
+    batch.set(incomeRef, {
+      'categories': incomeItems,
     });
 
-    batch.set(_categories.doc('expenses'), {
-      'name': 'Expenses',
-      'type': 'expenses',
+    batch.set(expenseRef, {
+      'categories': expenseItems,
     });
-
-    final incomeRef =
-    _itemsCollection(TransactionType.income);
-
-    final expenseRef =
-    _itemsCollection(TransactionType.expense);
-
-    final incomeExisting = await incomeRef.get();
-    final expenseExisting = await expenseRef.get();
-
-    final existingIncome = incomeExisting.docs
-        .map((doc) => doc.data()['name'] as String? ?? '')
-        .toSet();
-
-    final existingExpense = expenseExisting.docs
-        .map((doc) => doc.data()['name'] as String? ?? '')
-        .toSet();
-
-    for (final name in incomeCategories) {
-      if (!existingIncome.contains(name)) {
-        final doc = incomeRef.doc();
-
-        batch.set(doc, {
-          'name': name,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-    }
-
-    for (final name in expenseCategories) {
-      if (!existingExpense.contains(name)) {
-        final doc = expenseRef.doc();
-
-        batch.set(doc, {
-          'name': name,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-    }
 
     await batch.commit();
   }
@@ -130,54 +99,53 @@ class CategoryService {
       throw Exception('Category name cannot be empty.');
     }
 
-    final collection = _itemsCollection(type);
+    final ref = _categoryDoc(type);
 
-    final existing = await collection
-        .where('name', isEqualTo: categoryName)
-        .limit(1)
-        .get();
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(ref);
 
-    if (existing.docs.isNotEmpty) {
-      return;
-    }
+      final categories = List<String>.from(
+        snapshot.data()?['categories'] ?? [],
+      );
 
-    await collection.add({
-      'name': categoryName,
-      'createdAt': FieldValue.serverTimestamp(),
+      if (categories.any(
+            (item) => item.toLowerCase() == categoryName.toLowerCase(),
+      )) {
+        return;
+      }
+
+      categories.add(categoryName);
+
+      transaction.set(ref, {
+        'categories': categories,
+      }, SetOptions(merge: true));
     });
   }
 
-  Future<void> deleteCategory(String categoryId) async {
-    final type = await _findCategoryType(categoryId);
-
-    if (type == null) {
-      throw Exception('Category not found.');
-    }
-
-    await _itemsCollection(type)
-        .doc(categoryId)
-        .delete();
-  }
-
-  Future<TransactionType?> _findCategoryType(
-      String categoryId,
-      ) async {
-    final incomeDoc = await _itemsCollection(
+  Future<void> deleteCategory(String categoryName) async {
+    for (final type in [
       TransactionType.income,
-    ).doc(categoryId).get();
-
-    if (incomeDoc.exists) {
-      return TransactionType.income;
-    }
-
-    final expenseDoc = await _itemsCollection(
       TransactionType.expense,
-    ).doc(categoryId).get();
+    ]) {
+      final ref = _categoryDoc(type);
 
-    if (expenseDoc.exists) {
-      return TransactionType.expense;
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(ref);
+
+        if (!snapshot.exists) return;
+
+        final categories = List<String>.from(
+          snapshot.data()?['categories'] ?? [],
+        );
+
+        categories.removeWhere(
+              (item) => item == categoryName,
+        );
+
+        transaction.update(ref, {
+          'categories': categories,
+        });
+      });
     }
-
-    return null;
   }
 }

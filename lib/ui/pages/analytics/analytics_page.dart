@@ -1,5 +1,6 @@
-import 'package:fl_chart/fl_chart.dart';
+ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+
 import 'package:my_wallet_app/data/models/transaction_model.dart';
 import 'package:my_wallet_app/data/services/wallet_service.dart';
 
@@ -32,31 +33,55 @@ required this.end,
 class _AnalyticsPageState extends State<AnalyticsPage> {
 String _period = 'Monthly';
 String _selectedKey = '';
+@override
+void initState() {
+ super.initState();
 
-String money(double amount) =>
-'${amount.toStringAsFixed(0)} MMK';
+ final now = DateTime.now();
+ _selectedKey = '${now.year}-${now.month}';
+}
 
-String compactMoney(double amount) {
-if (amount >= 1000000) {
-return '${(amount / 1000000).toStringAsFixed(1)}M';
-}
-if (amount >= 1000) {
-return '${(amount / 1000).toStringAsFixed(1)}k';
-}
-return amount.toStringAsFixed(0);
+static const Color incomeColor = Color(0xFF4B9FE1);
+static const Color expenseColor = Color(0xFFFF8A80);
+
+static const List<Color> chartColors = [
+Color(0xFF4B9FE1),
+Color(0xFFFF8A80),
+Color(0xFF9575CD),
+Color(0xFFFFB74D),
+Color(0xFF4DB6AC),
+Color(0xFF7986CB),
+Color(0xFFF06292),
+Color(0xFF90A4AE),
+Color(0xFF81C784),
+];
+
+String money(double amount) {
+return '${amount.toStringAsFixed(0)} MMK';
 }
 
 String _monthName(int month) {
 const months = [
-'January', 'February', 'March', 'April',
-'May', 'June', 'July', 'August',
-'September', 'October', 'November', 'December',
+'January',
+'February',
+'March',
+'April',
+'May',
+'June',
+'July',
+'August',
+'September',
+'October',
+'November',
+'December',
 ];
+
 return months[month - 1];
 }
 
-String _dateLabel(DateTime date) =>
-'${date.day} ${_monthName(date.month)} ${date.year}';
+String _dateLabel(DateTime date) {
+return '${date.day} ${_monthName(date.month)} ${date.year}';
+}
 
 List<_PeriodOption> _buildOptions() {
 final now = DateTime.now();
@@ -64,51 +89,103 @@ final options = <_PeriodOption>[];
 
 if (_period == 'Weekly') {
 final today = DateTime(now.year, now.month, now.day);
+
 final monday = today.subtract(
 Duration(days: today.weekday - 1),
 );
 
 for (int i = 0; i < 12; i++) {
-final start = monday.subtract(Duration(days: 7 * i));
-final end = start.add(const Duration(days: 7));
-final lastDay = end.subtract(const Duration(days: 1));
+final start = monday.subtract(
+Duration(days: 7 * i),
+);
 
-options.add(_PeriodOption(
+final end = start.add(
+const Duration(days: 7),
+);
+
+final lastDay = end.subtract(
+const Duration(days: 1),
+);
+
+options.add(
+_PeriodOption(
 key: start.toIso8601String(),
 label: i == 0
 ? 'This Week'
     : '${_dateLabel(start)} - ${_dateLabel(lastDay)}',
 start: start,
 end: end,
-));
+),
+);
 }
 } else if (_period == 'Monthly') {
-  for (int month = 1; month <= 12; month++) {
-    final start = DateTime(now.year, month, 1);
-    final end = DateTime(now.year, month + 1, 1);
+ for (int month = 1; month <= 12; month++) {
+  final start = DateTime(now.year, month, 1);
 
-    options.add(_PeriodOption(
-      key: '${start.year}-$month',
-      label: month == now.month
-          ? 'This Month (${_monthName(month)})'
-          : '${_monthName(month)} ${now.year}',
-      start: start,
-      end: end,
-    ));
-  }
+  final end = DateTime(now.year, month + 1, 1);
+
+  options.add(
+   _PeriodOption(
+    key: '${now.year}-$month',
+    label: month == now.month
+        ? 'This Month (${_monthName(month)})'
+        : '${_monthName(month)} ${now.year}',
+    start: start,
+    end: end,
+   ),
+  );
+ }
 } else {
 for (int i = 0; i < 6; i++) {
 final year = now.year - i;
-options.add(_PeriodOption(
+
+options.add(
+_PeriodOption(
 key: '$year',
 label: i == 0 ? 'This Year ($year)' : '$year',
 start: DateTime(year, 1, 1),
 end: DateTime(year + 1, 1, 1),
-));
+),
+);
 }
 }
 
 return options;
+}
+
+Map<String, double> _categoryTotals(
+List<TransactionModel> transactions,
+TransactionType type,
+) {
+final totals = <String, double>{};
+
+for (final item in transactions) {
+if (item.type != type) continue;
+
+final category = item.category.trim().isEmpty
+? 'Other'
+    : item.category.trim();
+
+totals[category] =
+(totals[category] ?? 0) + item.amount;
+}
+
+return totals;
+}
+
+List<MapEntry<String, double>> _sortedCategories(
+Map<String, double> totals,
+) {
+final result = totals.entries.toList();
+ result.sort(
+(a, b) => b.value.compareTo(a.value),
+);
+
+return result;
+}
+
+Color _categoryColor(int index) {
+return chartColors[index % chartColors.length];
 }
 
 @override
@@ -125,85 +202,71 @@ animation: widget.walletService,
 builder: (context, child) {
 if (widget.walletService.isLoading) {
 return const Scaffold(
-body: Center(child: CircularProgressIndicator()),
+body: Center(
+child: CircularProgressIndicator(),
+),
 );
 }
 
-final allTransactions = widget.walletService.transactions;
+final allTransactions =
+widget.walletService.transactions;
 
-final filteredTransactions = allTransactions.where((item) {
+final filteredTransactions =
+allTransactions.where((item) {
 return !item.date.isBefore(selectedOption.start) &&
 item.date.isBefore(selectedOption.end);
 }).toList();
 
 final income = filteredTransactions
-    .where((item) => item.type == TransactionType.income)
-    .fold<double>(0, (sum, item) => sum + item.amount);
-final expense = filteredTransactions
-    .where((item) => item.type == TransactionType.expense)
-    .fold<double>(0, (sum, item) => sum + item.amount);
-final categoryTotals = <String, double>{};
-
-for (final item in filteredTransactions) {
-  // Expense only
-  if (item.type != TransactionType.expense) {
-    continue;
-  }
-
-  final category = item.category.trim().isEmpty
-      ? 'Untitled'
-      : item.category.trim();
-
-  categoryTotals[category] =
-      (categoryTotals[category] ?? 0) + item.amount;
-}
-
-final categories = categoryTotals.entries.toList()
-  ..sort((a, b) => b.value.compareTo(a.value));
-
-final totalCategoryExpense = categories.fold<double>(
-  0,
-      (sum, item) => sum + item.value,
+    .where(
+(item) =>
+item.type == TransactionType.income,
+)
+    .fold<double>(
+0,
+(sum, item) => sum + item.amount,
 );
 
-final maxAmount = categories.isEmpty
-    ? 100.0
-    : categories.first.value * 1.2;
+final expense = filteredTransactions
+    .where(
+(item) =>
+item.type == TransactionType.expense,
+)
+    .fold<double>(
+0,
+(sum, item) => sum + item.amount,
+);
 
-final chartMaxY = maxAmount <= 0 ? 100.0 : maxAmount;
+final incomeCategories = _sortedCategories(
+_categoryTotals(
+filteredTransactions,
+TransactionType.income,
+),
+);
 
-const incomeColor = Color(0xFF4B9FE1);
-const expenseColor = Color(0xFFFF8A80);
-
-const chartColors = [
-Color(0xFF4B9FE1),
-Color(0xFFFF8A80),
-Color(0xFF9575CD),
-Color(0xFFFFB74D),
-Color(0xFF4DB6AC),
-Color(0xFF7986CB),
-Color(0xFFF06292),
-Color(0xFF90A4AE),
-Color(0xFF81C784),
-];
-
-Color categoryColor(int index) =>
-chartColors[index % chartColors.length];
+final expenseCategories = _sortedCategories(
+_categoryTotals(
+filteredTransactions,
+TransactionType.expense,
+),
+);
 
 return Scaffold(
 appBar: AppBar(
 title: const Text(
 'Analytics',
-style: TextStyle(fontWeight: FontWeight.bold),
+style: TextStyle(
+fontWeight: FontWeight.bold,
+),
 ),
 ),
 body: ListView(
 padding: const EdgeInsets.all(16),
 children: [
-
 // PERIOD DROPDOWN
 DropdownButtonFormField<String>(
-value: _period,
+key: ValueKey(_period),
+initialValue: _period,
 isExpanded: true,
 decoration: const InputDecoration(
 labelText: 'Period',
@@ -225,11 +288,18 @@ child: Text('Yearly'),
 ),
 ],
 onChanged: (value) {
-if (value == null) return;
-setState(() {
-_period = value;
-_selectedKey = '';
-});
+ if (value == null) return;
+
+ setState(() {
+  _period = value;
+
+  if (value == 'Monthly') {
+   final now = DateTime.now();
+   _selectedKey = '${now.year}-${now.month}';
+  } else {
+   _selectedKey = '';
+  }
+ });
 },
 ),
 
@@ -237,12 +307,16 @@ const SizedBox(height: 12),
 
 // DATE DROPDOWN
 DropdownButtonFormField<String>(
-key: ValueKey(_period),
-value: selectedOption.key,
+key: ValueKey(
+'$_period-${selectedOption.key}',
+),
+initialValue: selectedOption.key,
 isExpanded: true,
 decoration: InputDecoration(
 labelText: 'Select $_period',
-prefixIcon: const Icon(Icons.calendar_month),
+prefixIcon: const Icon(
+Icons.calendar_month,
+ ),
 border: const OutlineInputBorder(),
 ),
 items: options.map((option) {
@@ -250,13 +324,16 @@ return DropdownMenuItem<String>(
 value: option.key,
 child: Text(
 option.label,
- overflow: TextOverflow.ellipsis,
+overflow: TextOverflow.ellipsis,
 ),
 );
 }).toList(),
 onChanged: (value) {
 if (value == null) return;
-setState(() => _selectedKey = value);
+
+setState(() {
+_selectedKey = value;
+});
 },
 ),
 
@@ -267,11 +344,14 @@ selectedOption.label,
 style: Theme.of(context)
     .textTheme
     .titleMedium
-    ?.copyWith(fontWeight: FontWeight.bold),
+    ?.copyWith(
+fontWeight: FontWeight.bold,
+),
 ),
 
 const SizedBox(height: 12),
 
+// INCOME AND EXPENSE SUMMARY
 Row(
 children: [
 Expanded(
@@ -292,215 +372,31 @@ expenseColor,
 ],
 ),
 
-const SizedBox(height: 24),
+const SizedBox(height: 28),
 
-_sectionTitle(context, 'Expenses by Category'),
+// INCOME PIE CHART
+_sectionTitle('Income'),
+
 const SizedBox(height: 12),
 
-Card(
-child: Padding(
-padding: const EdgeInsets.fromLTRB(8, 20, 16, 20),
-child: Column(
-crossAxisAlignment: CrossAxisAlignment.start,
-children: [
-const Padding(
-padding: EdgeInsets.only(left: 8),
-child: Text(
-'Spending by Item',
-style: TextStyle(fontWeight: FontWeight.w600),
-),
-),
-const SizedBox(height: 20),
-
-if (categories.isEmpty)
-const SizedBox(
-height: 160,
-child: Center(
-child: Text('No expense items for this period.'),
-),
-)
-else
-SizedBox(
-height: 250,
-child: BarChart(
-BarChartData(
-minY: 0,
-maxY: chartMaxY,
-alignment: BarChartAlignment.spaceAround,
-gridData: FlGridData(
-show: true,
-drawVerticalLine: false,
-horizontalInterval: chartMaxY / 4,
-),
-borderData: FlBorderData(show: false),
-barTouchData: BarTouchData(
-touchTooltipData: BarTouchTooltipData(
-getTooltipItem: (
-group,
-groupIndex,
-rod,
-rodIndex,
-) {
-if (group.x < 0 ||
-group.x >= categories.length) {
-return null;
-}
-return BarTooltipItem(
-  '${categories[group.x].key.split('::').last}\n'
-'${money(rod.toY)}',
-const TextStyle(
-color: Colors.white,
- fontWeight: FontWeight.bold,
-),
-);
-},
-),
-),
-titlesData: FlTitlesData(
-topTitles: const AxisTitles(
-sideTitles: SideTitles(showTitles: false),
-),
-rightTitles: const AxisTitles(
-sideTitles: SideTitles(showTitles: false),
-),
-leftTitles: AxisTitles(
-sideTitles: SideTitles(
-showTitles: true,
-reservedSize: 48,
-interval: chartMaxY / 4,
-getTitlesWidget: (value, meta) =>
-SideTitleWidget(
-meta: meta,
-child: Text(
-compactMoney(value),
-style: const TextStyle(fontSize: 10),
-),
-),
-),
-),
-bottomTitles: AxisTitles(
-sideTitles: SideTitles(
-showTitles: true,
-reservedSize: 40,
-  getTitlesWidget: (value, meta) {
-    final index = value.toInt();
-
-    if (index < 0 || index >= categories.length) {
-      return const SizedBox.shrink();
-    }
-
-    final name = categories[index].key.split('::').last;
-
-    return SideTitleWidget(
-      meta: meta,
-      child: RotatedBox(
-        quarterTurns: 3,
-        child: Text(
-          name,
-          style: const TextStyle(fontSize: 10),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    );
-  },
-),
-),
-),
-barGroups: List.generate(categories.length, (i) {
-return BarChartGroupData(
-x: i,
-barRods: [
-BarChartRodData(
-toY: categories[i].value,
-color: categoryColor(i),
-width: categories.length > 6 ? 14 : 24,
-borderRadius: const BorderRadius.vertical(
-top: Radius.circular(5),
-),
-),
-],
-);
-}),
-),
-),
-),
-],
-),
-),
+_buildPieChart(
+incomeCategories,
+'No income items for this period.',
 ),
 
-const SizedBox(height: 24),
+const SizedBox(height: 28),
 
-_sectionTitle(context, 'Expense Distribution'),
+// EXPENSE PIE CHART
+_sectionTitle('Expenses'),
+
 const SizedBox(height: 12),
-Card(
-child: Padding(
-padding: const EdgeInsets.all(20),
-child: Column(
-children: [
-const Align(
-alignment: Alignment.centerLeft,
-child: Text(
-'Spending Breakdown',
-style: TextStyle(fontWeight: FontWeight.w600),
-),
-),
-const SizedBox(height: 20),
 
-if (categories.isEmpty || totalCategoryExpense == 0)
-const SizedBox(
-height: 180,
-child: Center(
-child: Text('No expense items for this period.'),
-),
-)
-else ...[
-SizedBox(
-height: 220,
-child: PieChart(
-PieChartData(
-sectionsSpace: 3,
-centerSpaceRadius: 42,
-sections: List.generate(categories.length, (i) {
-final item = categories[i];
-final percentage =
-item.value / totalCategoryExpense * 100;
-
-return PieChartSectionData(
-  value: item.value,
-  color: categoryColor(i),
-  radius: 48,
-  showTitle: false,
-
-);
-}),
-),
-),
+_buildPieChart(
+expenseCategories,
+'No expense items for this period.',
 ),
 
 const SizedBox(height: 24),
-
-...List.generate(categories.length, (i) {
-final item = categories[i];
-return Padding(
-padding: const EdgeInsets.only(bottom: 14),
-child: _legendRow(
-color: categoryColor(i),
-title: item.key,
-amount: item.value,
-percentage:
-item.value / totalCategoryExpense * 100,
-),
-);
-}),
-],
-],
-),
-),
-),
-
-
 ],
 ),
 );
@@ -508,17 +404,23 @@ item.value / totalCategoryExpense * 100,
 );
 }
 
-Widget _sectionTitle(BuildContext context, String title) {
+Widget _sectionTitle(String title) {
 return Text(
 title,
 style: Theme.of(context)
     .textTheme
-    .titleMedium
-    ?.copyWith(fontWeight: FontWeight.bold),
+    .titleLarge
+    ?.copyWith(
+fontWeight: FontWeight.bold,
+),
 );
 }
 
-Widget _summaryCard(String title, double amount, Color color) {
+Widget _summaryCard(
+String title,
+double amount,
+Color color,
+) {
 return Container(
 padding: const EdgeInsets.all(18),
 decoration: BoxDecoration(
@@ -526,10 +428,15 @@ color: color.withValues(alpha: 0.10),
 borderRadius: BorderRadius.circular(18),
 ),
 child: Column(
- crossAxisAlignment: CrossAxisAlignment.start,
+crossAxisAlignment: CrossAxisAlignment.start,
 children: [
-Text(title, style: TextStyle(color: color)),
+Text(
+title,
+style: TextStyle(color: color),
+),
+
 const SizedBox(height: 10),
+
 FittedBox(
 fit: BoxFit.scaleDown,
 alignment: Alignment.centerLeft,
@@ -543,6 +450,90 @@ fontWeight: FontWeight.bold,
 ),
 ),
 ],
+),
+);
+}
+
+Widget _buildPieChart(
+List<MapEntry<String, double>> categories,
+String emptyMessage,
+) {
+final total = categories.fold<double>(
+0,
+(sum, item) => sum + item.value,
+);
+
+return Card(
+child: Padding(
+padding: const EdgeInsets.all(20),
+child: Column(
+children: [
+if (categories.isEmpty || total <= 0)
+SizedBox(
+ height: 180,
+child: Center(
+child: Text(emptyMessage),
+),
+)
+else ...[
+SizedBox(
+height: 220,
+child: PieChart(
+PieChartData(
+sectionsSpace: 3,
+centerSpaceRadius: 42,
+sections: List.generate(
+categories.length,
+(i) {
+final item = categories[i];
+
+final percentage =
+item.value / total * 100;
+
+return PieChartSectionData(
+value: item.value,
+color: _categoryColor(i),
+radius: 55,
+title:
+'${percentage.toStringAsFixed(0)}%',
+titleStyle: const TextStyle(
+color: Colors.white,
+fontSize: 11,
+fontWeight: FontWeight.bold,
+),
+);
+},
+),
+),
+),
+),
+
+const SizedBox(height: 24),
+
+...List.generate(
+categories.length,
+(i) {
+final item = categories[i];
+
+final percentage =
+item.value / total * 100;
+
+return Padding(
+padding: const EdgeInsets.only(
+bottom: 14,
+),
+child: _legendRow(
+color: _categoryColor(i),
+title: item.key,
+amount: item.value,
+percentage: percentage,
+),
+);
+},
+),
+],
+],
+),
 ),
 );
 }
@@ -563,24 +554,36 @@ color: color,
 shape: BoxShape.circle,
 ),
 ),
+
 const SizedBox(width: 10),
+
 Expanded(
 child: Text(
 title,
-style: const TextStyle(fontWeight: FontWeight.w600),
+style: const TextStyle(
+fontWeight: FontWeight.w600,
 ),
 ),
+),
+
 Column(
 crossAxisAlignment: CrossAxisAlignment.end,
 children: [
 Text(
 money(amount),
-style: const TextStyle(fontWeight: FontWeight.w600),
+style: const TextStyle(
+fontWeight: FontWeight.w600,
 ),
+),
+
 const SizedBox(height: 3),
+
 Text(
 '${percentage.toStringAsFixed(1)}%',
-style: const TextStyle(color: Colors.grey, fontSize: 12),
+style: const TextStyle(
+color: Colors.grey,
+fontSize: 12,
+),
 ),
 ],
 ),

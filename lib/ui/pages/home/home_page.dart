@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
+ import 'package:flutter/material.dart';
+
 import '../../../data/models/transaction_model.dart';
 import '../../../data/services/wallet_service.dart';
-
 import '../transactions/transactions_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -23,6 +23,18 @@ RegExp(r'\B(?=(\d{3})+(?!\d))'),
 (match) => ',',
 );
 return 'MMK $formatted';
+}
+
+void _openTransactions(BuildContext context, {String filter = 'All'}) {
+Navigator.push(
+context,
+MaterialPageRoute(
+builder: (_) => TransactionsPage(
+walletService: walletService,
+initialFilter: filter,
+),
+),
+);
 }
 
 @override
@@ -104,7 +116,7 @@ const SizedBox(height: 12),
 Text(
 _money(walletService.balance),
 style: const TextStyle(
-color: Colors.white,
+ color: Colors.white,
 fontSize: 27,
 fontWeight: FontWeight.bold,
 ),
@@ -128,14 +140,12 @@ style: TextStyle(color: Colors.white70),
 ),
 const SizedBox(height: 20),
 
-
-
 // Income and Expense
 Row(
 children: [
 Expanded(
 child: _summaryCard(
-  context: context,
+context: context,
 title: 'Income',
 amount: walletService.totalIncome,
 icon: Icons.arrow_downward_rounded,
@@ -145,7 +155,7 @@ color: incomeGreen,
 const SizedBox(width: 14),
 Expanded(
 child: _summaryCard(
-  context: context,
+context: context,
 title: 'Expense',
 amount: walletService.totalExpense,
 icon: Icons.arrow_upward_rounded,
@@ -168,9 +178,7 @@ fontWeight: FontWeight.bold,
 ),
 ),
 TextButton(
-onPressed: () {
-// Transactions ကို အောက်ခြေ menu မှ ဖွင့်နိုင်ပါတယ်။
-},
+onPressed: () => _openTransactions(context),
 child: const Text('See All'),
 ),
 ],
@@ -208,7 +216,7 @@ Text(
 style: TextStyle(
 color: Colors.grey.shade600,
 fontSize: 13,
-),
+ ),
 ),
 ],
 ),
@@ -221,19 +229,20 @@ final color = isIncome ? incomeGreen : expenseRed;
 final sign = isIncome ? '+' : '-';
 final icon = isIncome
 ? Icons.arrow_downward_rounded
-: Icons.arrow_upward_rounded;
+    : Icons.arrow_upward_rounded;
+
 return _transactionTile(
-  title: transaction.title,
-  subtitle:
-  '${transaction.date.day.toString().padLeft(2, '0')}/'
-      '${transaction.date.month.toString().padLeft(2, '0')}/'
-      '${transaction.date.year}',
-  amount: '$sign ${_money(transaction.amount)}',
-  icon: icon,
-  color: color,
+title: transaction.title,
+subtitle:
+'${transaction.date.day.toString().padLeft(2, '0')}/'
+'${transaction.date.month.toString().padLeft(2, '0')}/'
+'${transaction.date.year}',
+amount: '$sign ${_money(transaction.amount)}',
+icon: icon,
+color: color,
 );
 }),
-  const SizedBox(height: 20),
+const SizedBox(height: 20),
 ],
 ),
 ),
@@ -243,129 +252,124 @@ return _transactionTile(
 }
 
 Widget _summaryCard({
-  required BuildContext context,
-  required String title,
-  required double amount,
-  required IconData icon,
-  required Color color,
+required BuildContext context,
+required String title,
+required double amount,
+required IconData icon,
+required Color color,
 }) {
-  return InkWell(
-    borderRadius: BorderRadius.circular(20),
-    onTap: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TransactionsPage(
-            walletService: walletService,
-            initialFilter: title,
-          ),
-        ),
-      );
-    },
-    child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8EDF4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(9),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 6),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              _money(amount),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+return InkWell(
+borderRadius: BorderRadius.circular(20),
+onTap: () => _openTransactions(context, filter: title),
+child: Container(
+padding: const EdgeInsets.all(16),
+decoration: BoxDecoration(
+color: Colors.white,
+borderRadius: BorderRadius.circular(20),
+border: Border.all(
+color: const Color(0xFFE8EDF4),
+),
+),
+child: Column(
+crossAxisAlignment: CrossAxisAlignment.start,
+children: [
+Container(
+padding: const EdgeInsets.all(9),
+decoration: BoxDecoration(
+color: color.withValues(alpha: 0.12),
+borderRadius: BorderRadius.circular(12),
+),
+child: Icon(icon, color: color, size: 22),
+),
+const SizedBox(height: 14),
+Text(
+title,
+style: TextStyle(
+color: Colors.grey.shade600,
+fontSize: 13,
+),
+),
+const SizedBox(height: 6),
+FittedBox(
+fit: BoxFit.scaleDown,
+alignment: Alignment.centerLeft,
+child: Text(
+_money(amount),
+style: const TextStyle(
+fontSize: 16,
+fontWeight: FontWeight.bold,
+),
+),
+),
+],
+),
+),
+);
 }
+
 Widget _transactionTile({
-  required String title,
-  required String subtitle,
-  required String amount,
-  required IconData icon,
-  required Color color,
+required String title,
+required String subtitle,
+required String amount,
+required IconData icon,
+required Color color,
 }) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: const Color(0xFFE8EDF4)),
-    ),
-    child: Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: color),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            amount,
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
+return Container(
+margin: const EdgeInsets.only(bottom: 12),
+padding: const EdgeInsets.all(14),
+decoration: BoxDecoration(
+color: Colors.white,
+borderRadius: BorderRadius.circular(18),
+border: Border.all(
+color: const Color(0xFFE8EDF4),
+),
+),
+child: Row(
+children: [
+Container(
+padding: const EdgeInsets.all(12),
+decoration: BoxDecoration(
+color: color.withValues(alpha: 0.12),
+borderRadius: BorderRadius.circular(14),
+),
+child: Icon(icon, color: color),
+),
+const SizedBox(width: 12),
+Expanded(
+child: Column(
+crossAxisAlignment: CrossAxisAlignment.start,
+ children: [
+Text(
+title,
+style: const TextStyle(
+fontWeight: FontWeight.w600,
+),
+),
+const SizedBox(height: 4),
+Text(
+subtitle,
+style: TextStyle(
+color: Colors.grey.shade600,
+fontSize: 12,
+),
+),
+],
+),
+),
+const SizedBox(width: 6),
+Flexible(
+child: Text(
+amount,
+textAlign: TextAlign.end,
+style: TextStyle(
+color: color,
+fontSize: 12,
+fontWeight: FontWeight.bold,
+),
+),
+),
+],
+),
+);
 }
 }
