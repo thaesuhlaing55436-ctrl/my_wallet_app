@@ -2,7 +2,7 @@
 
 import '../../../data/models/transaction_model.dart';
 import '../../../data/services/wallet_service.dart';
-
+ import '../../../data/services/category_service.dart';
 
 class TransactionsPage extends StatefulWidget {
 final WalletService walletService;
@@ -20,6 +20,21 @@ State<TransactionsPage> createState() => _TransactionsPageState();
 
 class _TransactionsPageState extends State<TransactionsPage> {
 WalletService get wallet => widget.walletService;
+final CategoryService _categoryService = CategoryService();
+
+@override
+void initState() {
+  super.initState();
+  _initializeCategories();
+}
+
+Future<void> _initializeCategories() async {
+  try {
+    await _categoryService.initializeCategories();
+  } catch (error) {
+    debugPrint('Initialize categories error: $error');
+  }
+}
 
 String _searchQuery = '';
 final TextEditingController _searchController = TextEditingController();
@@ -65,23 +80,6 @@ transaction?.type ?? TransactionType.expense;
 
 DateTime date = transaction?.date ?? DateTime.now();
 
-const incomeCategories = [
-'Salary',
-'Business',
-'Gift',
-'Other',
-];
-
-const expenseCategories = [
-'Food',
-'Transport',
-'Shopping',
-'Bills',
-'Health',
-'Education',
-'Gift',
-'Other',
-];
 
 bool saving = false;
 
@@ -92,9 +90,6 @@ barrierDismissible: false,
 builder: (dialogContext) {
 return StatefulBuilder(
 builder: (stateContext, setDialogState) {
-final categories = type == TransactionType.income
-? incomeCategories
-    : expenseCategories;
 
 Future<void> saveTransaction() async {
 if (saving) return;
@@ -125,6 +120,8 @@ note: transaction?.note,
 );
 
 try {
+  await
+  _categoryService.addCategory(category, type);
 if (transaction == null) {
 await wallet.addTransaction(newTransaction);
 } else {
@@ -194,26 +191,91 @@ selected: {type},
 const SizedBox(height: 12),
 
 // Category
-TextFormField(
-controller: categoryController,
-enabled: !saving,
-textCapitalization: TextCapitalization.words,
-decoration: InputDecoration(
-labelText: 'Category',
-hintText: 'Enter category',
-border: const OutlineInputBorder(),
-),
-validator: (value) {
-if (value == null ||
-value.trim().isEmpty) {
-return 'Please enter a category';
-}
+  Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        flex: 3,
+        child: TextFormField(
+          controller: categoryController,
+          enabled: !saving,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Category',
+            hintText: 'Enter category',
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Please enter a category';
+            }
+            return null;
+          },
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        flex: 2,
+        child: StreamBuilder(
+          stream: _categoryService.getCategories(type),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Text(
+                'Error: ${snapshot.error}',
+                style: const TextStyle(color: Colors.red),
+              );
+            }
 
-return null;
-},
-),
-const SizedBox(height: 12),
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
 
+            final categories = snapshot.data?.docs
+                .map((doc) => doc.data()['name'] as String)
+                .toList() ??
+                [];
+
+            return DropdownButtonFormField<String>(
+              key: ValueKey(type),
+              initialValue: categories.contains(
+                categoryController.text.trim(),
+              )
+                  ? categoryController.text.trim()
+                  : null,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Choose',
+                border: OutlineInputBorder(),
+              ),
+              hint: const Text('Select'),
+              items: categories.map((category) {
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(
+                    category,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              onChanged: saving
+                  ? null
+                  : (value) {
+                if (value != null) {
+                  setDialogState(() {
+                    categoryController.text = value;
+                  });
+                }
+              },
+            );
+          },
+        ),
+      ),
+    ],
+  ),
+
+  const SizedBox(height: 12),
 // Amount
 TextFormField(
 controller: amountController,

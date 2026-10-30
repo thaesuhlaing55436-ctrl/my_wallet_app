@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -19,11 +19,30 @@ State<AddTransactionPage> createState() =>
 _AddTransactionPageState();
 }
 
-class _AddTransactionPageState
-extends State<AddTransactionPage> {
+class _AddTransactionPageState extends State<AddTransactionPage> {
 final _formKey = GlobalKey<FormState>();
 final _amountController = TextEditingController();
+final _categoryController = TextEditingController();
+
 final CategoryService _categoryService = CategoryService();
+
+static const List<String> _incomeCategories = [
+'Salary',
+'Business',
+'Gift',
+'Other',
+];
+
+static const List<String> _expenseCategories = [
+'Food',
+'Transport',
+'Shopping',
+'Bills',
+'Health',
+'Education',
+'Gift',
+'Other',
+];
 
 TransactionType _type = TransactionType.expense;
 String _category = 'Food';
@@ -33,6 +52,7 @@ bool _saving = false;
 @override
 void initState() {
 super.initState();
+_categoryController.text = _category;
 _initializeCategories();
 }
 
@@ -44,17 +64,33 @@ debugPrint('Initialize categories failed: $e');
 }
 }
 
+List<String> get _defaultCategories {
+return _type == TransactionType.income
+? _incomeCategories
+    : _expenseCategories;
+}
+
+void _changeType(TransactionType type) {
+setState(() {
+_type = type;
+_category = type == TransactionType.income
+? 'Salary'
+    : 'Food';
+_categoryController.text = _category;
+});
+}
+
 Future<void> _addCategory() async {
 final controller = TextEditingController();
 
 final name = await showDialog<String>(
 context: context,
-builder: (dialogContext) {
-return AlertDialog(
+builder: (dialogContext) => AlertDialog(
 title: const Text('Add Category'),
 content: TextField(
 controller: controller,
 autofocus: true,
+textCapitalization: TextCapitalization.words,
 decoration: const InputDecoration(
 labelText: 'Category name',
 border: OutlineInputBorder(),
@@ -62,8 +98,7 @@ border: OutlineInputBorder(),
 ),
 actions: [
 TextButton(
-onPressed: () =>
-Navigator.pop(dialogContext),
+onPressed: () => Navigator.pop(dialogContext),
 child: const Text('Cancel'),
 ),
 FilledButton(
@@ -76,8 +111,7 @@ Navigator.pop(dialogContext, value);
 child: const Text('Add'),
 ),
 ],
-);
-},
+),
 );
 
 controller.dispose();
@@ -85,14 +119,17 @@ controller.dispose();
 if (name == null || !mounted) return;
 
 try {
-await _categoryService.addCategory(name);
+await _categoryService.addCategory(name, _type);
 
 if (!mounted) return;
 
-setState(() => _category = name.trim());
+setState(() {
+_category = name.trim();
+_categoryController.text = _category;
+});
 
 ScaffoldMessenger.of(context).showSnackBar(
-const SnackBar(content: Text('Category added')),
+const SnackBar(content: Text('Category saved')),
 );
 } catch (e) {
 if (!mounted) return;
@@ -113,14 +150,12 @@ builder: (dialogContext) => AlertDialog(
 title: const Text('Delete Category?'),
 content: Text('Delete "$name"?'),
 actions: [
-TextButton(
-onPressed: () =>
-Navigator.pop(dialogContext, false),
+ TextButton(
+onPressed: () => Navigator.pop(dialogContext, false),
 child: const Text('Cancel'),
 ),
 FilledButton(
-onPressed: () =>
-Navigator.pop(dialogContext, true),
+onPressed: () => Navigator.pop(dialogContext, true),
 child: const Text('Delete'),
 ),
 ],
@@ -133,6 +168,13 @@ try {
 await _categoryService.deleteCategory(categoryId);
 
 if (!mounted) return;
+
+setState(() {
+_category = _type == TransactionType.income
+? 'Salary'
+    : 'Food';
+_categoryController.text = _category;
+});
 
 ScaffoldMessenger.of(context).showSnackBar(
 const SnackBar(content: Text('Category deleted')),
@@ -155,6 +197,7 @@ lastDate: DateTime.now(),
 );
 
 if (!mounted) return;
+
 if (selected != null) {
 setState(() => _date = selected);
 }
@@ -162,24 +205,34 @@ setState(() => _date = selected);
 
 Future<void> _saveTransaction() async {
 if (_saving) return;
+
 if (!_formKey.currentState!.validate()) return;
 
+// Read the service before any await.
+final service =
+widget.walletService ?? context.read<WalletService>();
+
 FocusScope.of(context).unfocus();
+
 setState(() => _saving = true);
 
 try {
+final categoryName = _categoryController.text.trim();
+
+// Save category first. Duplicate categories are ignored.
+await _categoryService.addCategory(categoryName, _type);
+
+if (!mounted) return;
+
 final transaction = TransactionModel(
 id: const Uuid().v4(),
-title: _category,
+title: categoryName,
 amount: double.parse(_amountController.text.trim()),
-category: _category,
+category: categoryName,
 date: _date,
 type: _type,
 note: null,
 );
-
-final service =
-widget.walletService ?? context.read<WalletService>();
 
 await service.addTransaction(transaction);
 
@@ -208,6 +261,7 @@ setState(() => _saving = false);
 @override
 void dispose() {
 _amountController.dispose();
+_categoryController.dispose();
 super.dispose();
 }
 
@@ -240,116 +294,153 @@ icon: Icon(Icons.trending_down),
 ],
 selected: {_type},
 onSelectionChanged: (selection) {
-setState(() => _type = selection.first);
+_changeType(selection.first);
 },
 ),
+
 const SizedBox(height: 24),
 
 StreamBuilder(
-stream: _categoryService.getCategories(),
+stream: _categoryService.getCategories(_type),
 builder: (context, snapshot) {
-  debugPrint('Category error: ${snapshot.error}');
-  debugPrint('Category loading: ${snapshot.connectionState}');
-  debugPrint('Category count: ${snapshot.data?.docs.length}');
-if (snapshot.hasError) {
-return Text(
-'Could not load categories: ${snapshot.error}',
-style: TextStyle(color: colors.error),
-);
-}
-
-if (!snapshot.hasData) {
-return const Center(
-child: CircularProgressIndicator(),
-);
-}
-
-final docs = snapshot.data!.docs;
-final categories = docs.where((doc) {
-final name = doc.data()['name'];
-return name is String && name.isNotEmpty;
-}).toList();
-
-if (categories.isEmpty) {
-return Column(
-crossAxisAlignment: CrossAxisAlignment.stretch,
-children: [
-const Text('No categories yet.'),
-const SizedBox(height: 8),
-OutlinedButton.icon(
-onPressed: _addCategory,
-icon: const Icon(Icons.add),
-label: const Text('Add Category'),
-),
-],
-);
-}
-
-final names = categories
-    .map((doc) => doc.data()['name'] as String)
-    .toSet()
+final docs = snapshot.data?.docs ?? [];
+ final firestoreNames = docs
+    .map((doc) => doc.data()['name'])
+    .whereType<String>()
+    .where((name) => name.trim().isNotEmpty)
     .toList();
-final selectedCategory =
-names.contains(_category) ? _category : names.first;
 
-if (selectedCategory != _category) {
-WidgetsBinding.instance.addPostFrameCallback((_) {
-if (mounted && _category != selectedCategory) {
-setState(() => _category = selectedCategory);
-}
-});
-}
+final names = <String>{
+..._defaultCategories,
+...firestoreNames,
+}.toList();
+
+final selectedCategory =
+names.contains(_category) ? _category : null;
 
 return Column(
-crossAxisAlignment: CrossAxisAlignment.stretch,
+crossAxisAlignment: CrossAxisAlignment.start,
 children: [
+const Text(
+'Category',
+style: TextStyle(
+fontWeight: FontWeight.w600,
+fontSize: 15,
+),
+),
+
+const SizedBox(height: 8),
+
 Row(
+crossAxisAlignment: CrossAxisAlignment.start,
 children: [
 Expanded(
+child: TextFormField(
+controller: _categoryController,
+textCapitalization:
+TextCapitalization.words,
+decoration: const InputDecoration(
+hintText: 'Enter category',
+prefixIcon:
+Icon(Icons.category_outlined),
+border: OutlineInputBorder(),
+),
+onChanged: (value) {
+_category = value.trim();
+},
+validator: (value) {
+if (value == null ||
+value.trim().isEmpty) {
+return 'Please enter a category';
+}
+return null;
+},
+),
+),
+
+const SizedBox(width: 8),
+
+Expanded(
 child: DropdownButtonFormField<String>(
-key: ValueKey(selectedCategory),
+key: ValueKey(
+'${_type.name}-$selectedCategory',
+),
 initialValue: selectedCategory,
 isExpanded: true,
 decoration: const InputDecoration(
-labelText: 'Category',
-prefixIcon:
-Icon(Icons.category_outlined),
+labelText: 'Choose',
 border: OutlineInputBorder(),
 ),
 items: names.map((name) {
 return DropdownMenuItem<String>(
 value: name,
-child: Text(name),
+child: Text(
+name,
+overflow: TextOverflow.ellipsis,
+),
 );
 }).toList(),
 onChanged: (value) {
 if (value != null) {
-setState(() => _category = value);
+setState(() {
+_category = value;
+_categoryController.text = value;
+});
 }
 },
 ),
 ),
-IconButton(
-tooltip: 'Add category',
-onPressed: _addCategory,
-icon: const Icon(Icons.add_circle_outline),
+],
 ),
+
+const SizedBox(height: 8),
+ Row(
+children: [
+TextButton.icon(
+onPressed: _addCategory,
+icon: const Icon(Icons.add),
+label: const Text('Add Category'),
+),
+
+const Spacer(),
+
 IconButton(
 tooltip: 'Delete selected category',
 onPressed: () {
-final selectedDoc = categories.firstWhere(
+final matchingDocs = docs.where(
 (doc) =>
-doc.data()['name'] == selectedCategory,
+doc.data()['name'] ==
+_categoryController.text.trim(),
 );
 
+if (matchingDocs.isEmpty) {
+ScaffoldMessenger.of(context)
+    .showSnackBar(
+const SnackBar(
+content: Text(
+'This category cannot be deleted.',
+),
+),
+);
+return;
+}
+
+final doc = matchingDocs.first;
+
 _deleteCategory(
-selectedDoc.id,
-selectedCategory,
+doc.id,
+_categoryController.text.trim(),
 );
 },
 icon: const Icon(Icons.delete_outline),
 ),
 ],
+),
+
+if (snapshot.hasError)
+Text(
+'Firestore error: ${snapshot.error}',
+style: TextStyle(color: colors.error),
 ),
 ],
 );
@@ -361,7 +452,9 @@ const SizedBox(height: 16),
 TextFormField(
 controller: _amountController,
 keyboardType:
-const TextInputType.numberWithOptions(decimal: true),
+const TextInputType.numberWithOptions(
+decimal: true,
+),
 decoration: const InputDecoration(
 labelText: 'Amount (MMK)',
 hintText: 'Enter amount',
@@ -369,7 +462,8 @@ prefixIcon: Icon(Icons.payments_outlined),
 border: OutlineInputBorder(),
 ),
 validator: (value) {
-final amount = double.tryParse(value?.trim() ?? '');
+final amount =
+double.tryParse(value?.trim() ?? '');
 
 if (amount == null ||
 !amount.isFinite ||
@@ -382,6 +476,7 @@ return null;
 ),
 
 const SizedBox(height: 16),
+
 InkWell(
 onTap: _selectDate,
 child: InputDecorator(
@@ -405,7 +500,7 @@ height: 52,
 child: FilledButton.icon(
 onPressed: _saving ? null : _saveTransaction,
 icon: _saving
-? const SizedBox(
+ ? const SizedBox(
 height: 20,
 width: 20,
 child: CircularProgressIndicator(

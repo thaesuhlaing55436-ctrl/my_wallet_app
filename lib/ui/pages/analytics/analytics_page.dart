@@ -142,30 +142,32 @@ final income = filteredTransactions
 final expense = filteredTransactions
     .where((item) => item.type == TransactionType.expense)
     .fold<double>(0, (sum, item) => sum + item.amount);
-
 final categoryTotals = <String, double>{};
 
 for (final item in filteredTransactions) {
-  final title = item.title.trim().isEmpty
+  // Expense only
+  if (item.type != TransactionType.expense) {
+    continue;
+  }
+
+  final category = item.category.trim().isEmpty
       ? 'Untitled'
-      : item.title.trim();
+      : item.category.trim();
 
-  // Keep Income and Expense separate internally.
-  final key = '${item.type.name}::$title';
-
-  categoryTotals[key] =
-      (categoryTotals[key] ?? 0) + item.amount;
+  categoryTotals[category] =
+      (categoryTotals[category] ?? 0) + item.amount;
 }
 
 final categories = categoryTotals.entries.toList()
   ..sort((a, b) => b.value.compareTo(a.value));
 
-final totalCategoryExpense = categories
-    .where((item) => item.key.startsWith('expense::'))
-    .fold<double>(0, (sum, item) => sum + item.value);
+final totalCategoryExpense = categories.fold<double>(
+  0,
+      (sum, item) => sum + item.value,
+);
 
 final maxAmount = categories.isEmpty
-? 100.0
+    ? 100.0
     : categories.first.value * 1.2;
 
 final chartMaxY = maxAmount <= 0 ? 100.0 : maxAmount;
@@ -466,15 +468,11 @@ final percentage =
 item.value / totalCategoryExpense * 100;
 
 return PieChartSectionData(
-value: item.value,
-color: categoryColor(i),
-radius: 48,
-title: '${percentage.toStringAsFixed(0)}%',
-titleStyle: const TextStyle(
-color: Colors.white,
-fontSize: 11,
-fontWeight: FontWeight.bold,
-),
+  value: item.value,
+  color: categoryColor(i),
+  radius: 48,
+  showTitle: false,
+
 );
 }),
 ),

@@ -1,8 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/transaction_model.dart';
+
 class CategoryService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   String get _userId {
@@ -15,94 +19,165 @@ class CategoryService {
     return user.uid;
   }
 
-  CollectionReference<Map<String, dynamic>> get _categories =>
-      _firestore.collection('categories');
+  CollectionReference<Map<String, dynamic>>
+  get _categories =>
+      _firestore
+          .collection('users')
+          .doc(_userId)
+          .collection('categories');
 
-  static const List<String> defaultCategories = [
+  String _typeName(TransactionType type) {
+    return type == TransactionType.income
+        ? 'income'
+        : 'expenses';
+  }
+
+  CollectionReference<Map<String, dynamic>>
+  _itemsCollection(TransactionType type) {
+    return _categories
+        .doc(_typeName(type))
+        .collection('items');
+  }
+
+  static const List<String> incomeCategories = [
+    'Salary',
+    'Business',
+    'Gift',
+    'Other',
+  ];
+
+  static const List<String> expenseCategories = [
     'Food',
     'Transport',
     'Shopping',
     'Bills',
     'Health',
+    'Education',
+    'Gift',
+    'Other',
   ];
 
-  // Read categories for the logged-in user
-  Stream<QuerySnapshot<Map<String, dynamic>>> getCategories() {
-    return _categories
-        .where('userId', isEqualTo: _userId)
+  Stream<QuerySnapshot<Map<String, dynamic>>>
+  getCategories(TransactionType type) {
+    return _itemsCollection(type)
+        .orderBy('name')
         .snapshots();
   }
 
-  // Create missing default categories
   Future<void> initializeCategories() async {
-    final userId = _userId;
+    final batch = _firestore.batch();
 
-    final existing = await _categories
-        .where('userId', isEqualTo: userId)
-        .get();
+    // Create Income and Expenses documents
+    batch.set(_categories.doc('income'), {
+      'name': 'Income',
+      'type': 'income',
+    });
 
-    final existingNames = existing.docs
-        .map((doc) => doc.data()['name'])
-        .whereType<String>()
+    batch.set(_categories.doc('expenses'), {
+      'name': 'Expenses',
+      'type': 'expenses',
+    });
+
+    final incomeRef =
+    _itemsCollection(TransactionType.income);
+
+    final expenseRef =
+    _itemsCollection(TransactionType.expense);
+
+    final incomeExisting = await incomeRef.get();
+    final expenseExisting = await expenseRef.get();
+
+    final existingIncome = incomeExisting.docs
+        .map((doc) => doc.data()['name'] as String? ?? '')
         .toSet();
 
-    final batch = _firestore.batch();
-    int addedCount = 0;
+    final existingExpense = expenseExisting.docs
+        .map((doc) => doc.data()['name'] as String? ?? '')
+        .toSet();
 
-    for (final name in defaultCategories) {
-      if (!existingNames.contains(name)) {
-        final doc = _categories.doc();
+    for (final name in incomeCategories) {
+      if (!existingIncome.contains(name)) {
+        final doc = incomeRef.doc();
 
         batch.set(doc, {
           'name': name,
-          'userId': userId,
           'createdAt': FieldValue.serverTimestamp(),
         });
-
-        addedCount++;
       }
     }
 
-    if (addedCount > 0) {
-      await batch.commit();
+    for (final name in expenseCategories) {
+      if (!existingExpense.contains(name)) {
+        final doc = expenseRef.doc();
+
+        batch.set(doc, {
+          'name': name,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
     }
+
+    await batch.commit();
   }
 
-  // Add a category
-  Future<void> addCategory(String name) async {
-    final userId = _userId;
+  Future<void> addCategory(
+      String name,
+      TransactionType type,
+      ) async {
     final categoryName = name.trim();
 
     if (categoryName.isEmpty) {
       throw Exception('Category name cannot be empty.');
     }
 
-    final existing = await _categories
-        .where('userId', isEqualTo: userId)
+    final collection = _itemsCollection(type);
+
+    final existing = await collection
         .where('name', isEqualTo: categoryName)
         .limit(1)
         .get();
 
     if (existing.docs.isNotEmpty) {
-      throw Exception('Category already exists.');
+      return;
     }
 
-    await _categories.add({
+    await collection.add({
       'name': categoryName,
-      'userId': userId,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // Delete a category
   Future<void> deleteCategory(String categoryId) async {
-    final userId = _userId;
-    final doc = await _categories.doc(categoryId).get();
+    final type = await _findCategoryType(categoryId);
 
-    if (!doc.exists || doc.data()?['userId'] != userId) {
+    if (type == null) {
       throw Exception('Category not found.');
     }
 
-    await doc.reference.delete();
+    await _itemsCollection(type)
+        .doc(categoryId)
+        .delete();
+  }
+
+  Future<TransactionType?> _findCategoryType(
+      String categoryId,
+      ) async {
+    final incomeDoc = await _itemsCollection(
+      TransactionType.income,
+    ).doc(categoryId).get();
+
+    if (incomeDoc.exists) {
+      return TransactionType.income;
+    }
+
+    final expenseDoc = await _itemsCollection(
+      TransactionType.expense,
+    ).doc(categoryId).get();
+
+    if (expenseDoc.exists) {
+      return TransactionType.expense;
+    }
+
+    return null;
   }
 }
