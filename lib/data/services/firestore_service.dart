@@ -1,10 +1,12 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/transaction_model.dart';
 
 class FirestoreService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
 
   String get _userId {
     final user = FirebaseAuth.instance.currentUser;
@@ -32,17 +34,19 @@ class FirestoreService {
         .collection('categories');
   }
 
-  Map<String, dynamic> _toMap(TransactionModel transaction) {
+  // TransactionModel ကို Firestore Map အဖြစ်ပြောင်းခြင်း
+  Map<String, dynamic> _toMap(
+      TransactionModel transaction) {
     return {
-      'id': transaction.id,
       'title': transaction.title,
       'amount': transaction.amount,
       'category': transaction.category,
       'date': Timestamp.fromDate(transaction.date),
-      'note': transaction.note,
+      'type': transaction.type.name,
     };
   }
 
+  // Firestore Document ကို TransactionModel အဖြစ်ပြောင်းခြင်း
   TransactionModel _fromDoc(
       QueryDocumentSnapshot<Map<String, dynamic>> doc,
       List<String> incomeCategories,
@@ -56,32 +60,31 @@ class FirestoreService {
       amount: (data['amount'] as num).toDouble(),
       category: category,
       date: (data['date'] as Timestamp).toDate(),
-      type: incomeCategories.contains(category)
+      type: data['type'] == 'income'
           ? TransactionType.income
           : TransactionType.expense,
       note: data['note'],
     );
   }
 
+  // Transaction အသစ်ထည့်ခြင်း (Firestore Auto ID)
   Future<void> addTransaction(
-      TransactionModel transaction,
-      ) async {
-    await _transactionsCollection
-        .doc(transaction.id)
-        .set({
+      TransactionModel transaction) async {
+    await _transactionsCollection.add({
       ..._toMap(transaction),
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
+  // Transaction ပြင်ဆင်ခြင်း
   Future<void> updateTransaction(
-      TransactionModel transaction,
-      ) async {
+      TransactionModel transaction) async {
     await _transactionsCollection
         .doc(transaction.id)
         .update(_toMap(transaction));
   }
 
+  // Transaction အားလုံးကို ရယူခြင်း
   Stream<List<TransactionModel>> getTransactions() async* {
     await for (final snapshot in _transactionsCollection
         .orderBy('date', descending: true)
@@ -91,14 +94,20 @@ class FirestoreService {
           .get();
 
       final incomeCategories =
-      List<String>.from(incomeDoc.data()?['categories'] ?? []);
+      List<String>.from(
+        incomeDoc.data()?['categories'] ?? [],
+      );
 
       yield snapshot.docs
-          .map((doc) => _fromDoc(doc, incomeCategories))
+          .map((doc) => _fromDoc(
+        doc,
+        incomeCategories,
+      ))
           .toList();
     }
   }
 
+  // Transaction ဖျက်ခြင်း
   Future<void> deleteTransaction(String id) async {
     await _transactionsCollection.doc(id).delete();
   }

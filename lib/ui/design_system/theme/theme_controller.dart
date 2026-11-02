@@ -1,17 +1,18 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 
-class ThemeController extends ChangeNotifier {
-  bool _isDarkMode = false;
+class ThemeController extends Cubit<ThemeMode> {
+  ThemeController() : super(ThemeMode.light);
 
-  bool get isDarkMode => _isDarkMode;
+  bool get isDarkMode => state == ThemeMode.dark;
 
-  ThemeMode get themeMode =>
-      _isDarkMode ? ThemeMode.dark : ThemeMode.light;
+  ThemeMode get themeMode => state;
 
   void toggleTheme(bool value) {
-    if (_isDarkMode == value) return;
+    final newTheme = value ? ThemeMode.dark : ThemeMode.light;
 
-    _isDarkMode = value;
-    notifyListeners();
+    if (state == newTheme) return;
+
+    emit(newTheme);
   }
 }

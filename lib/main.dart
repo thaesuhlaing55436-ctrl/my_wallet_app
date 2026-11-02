@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:my_wallet_app/ui/design_system/theme/app_theme.dart';
 import 'package:my_wallet_app/ui/design_system/theme/theme_controller.dart';
 import 'package:my_wallet_app/ui/pages/auth/login_page.dart';
@@ -15,39 +17,28 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  runApp(const MyWalletApp());
+  runApp(
+    BlocProvider(
+      create: (_) => ThemeController(),
+      child: const MyWalletApp(),
+    ),
+  );
 }
 
-class MyWalletApp extends StatefulWidget {
+class MyWalletApp extends StatelessWidget {
   const MyWalletApp({super.key});
 
   @override
-  State<MyWalletApp> createState() => _MyWalletAppState();
-}
-
-class _MyWalletAppState extends State<MyWalletApp> {
-  final ThemeController _themeController = ThemeController();
-
-  @override
-  void dispose() {
-    _themeController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _themeController,
-      builder: (context, child) {
+    return BlocBuilder<ThemeController, ThemeMode>(
+      builder: (context, themeMode) {
         return MaterialApp(
           title: 'MyWallet',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
-          themeMode: _themeController.themeMode,
-          home: AuthGate(
-            themeController: _themeController,
-          ),
+          themeMode: themeMode,
+          home: const AuthGate(),
         );
       },
     );
@@ -55,12 +46,7 @@ class _MyWalletAppState extends State<MyWalletApp> {
 }
 
 class AuthGate extends StatelessWidget {
-  final ThemeController themeController;
-
-  const AuthGate({
-    super.key,
-    required this.themeController,
-  });
+  const AuthGate({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +63,7 @@ class AuthGate extends StatelessWidget {
 
         if (snapshot.hasData) {
           return MainNavigationPage(
-            themeController: themeController,
+            themeController: context.read<ThemeController>(),
           );
         }
 
